@@ -13,6 +13,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{7DB9E978-D770-4252-9669-9F28B70756BE}</ProjectGuid>
     <RootNamespace>wxCudaGL</RootNamespace>
+    <ProjectName>GameOfLife</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -34,11 +35,11 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\dependencies\stu\wxwidgets\3.1.6\wxwidgets.props" />
+    <Import Project="d:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\wxwidgets.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\dependencies\stu\wxwidgets\3.1.6\wxwidgets.props" />
+    <Import Project="d:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\wxwidgets.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -66,7 +67,7 @@
     </CudaCompile>
     <PostBuildEvent>
       <Command>rem copy "D:\HomeWork\Projects\C++\dependencies\stu\glew\2.1.0\bin\Release\x64\glew32.dll" "$(OutDir)"
-rem copy "d:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x64_dll\*.dll" "$(OutDir)"</Command>
+rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x64_dll\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -89,7 +90,7 @@ rem copy "d:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x6
     </CudaCompile>
     <PostBuildEvent>
       <Command>rem copy "D:\HomeWork\Projects\C++\dependencies\stu\glew\2.1.0\bin\Release\x64\glew32.dll" "$(OutDir)"
-rem copy "d:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x64_dll\*.dll" "$(OutDir)"</Command>
+rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x64_dll\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
