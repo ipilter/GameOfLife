@@ -5,22 +5,12 @@
 
 #include "Logger.h"
 
-void MainFrame::StepTimer::Notify()
-{
-  mGLCanvas->Step();
-}
-
-void MainFrame::StepTimer::SetGLCanvas( GLCanvas* glCanvas )
-{
-  mGLCanvas = glCanvas;
-}
-
 MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const int exponent, const int deltaTime )
   : wxFrame( parent, wxID_ANY, title, pos, size )
   , mGLCanvas( nullptr )
   , mColorButton( nullptr )
   , mLogTextBox( nullptr )
-  , mDeltaTime(deltaTime)
+  , mDeltaTime( deltaTime )
 {
   logger::Logger::instance() << __FUNCTION__ << "\n";
 
@@ -99,3 +89,12 @@ void MainFrame::OnColorButton( wxCommandEvent& event )
   mGLCanvas->SetDrawColor( math::uvec3( color.Red(), color.Green(), color.Blue() ) );
 }
 
+void MainFrame::StepTimer::Notify()
+{
+  mGLCanvas->Step();
+}
+
+void MainFrame::StepTimer::SetGLCanvas( GLCanvas* glCanvas )
+{
+  mGLCanvas = glCanvas;
+}

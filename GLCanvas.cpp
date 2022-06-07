@@ -23,19 +23,6 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
                     , const wxPalette& palette )
   : wxGLCanvas( parent, id, attribList, pos, size, style, name, palette )
   , mTextureExponent( textureExponent )
-  , mQuadSize( 1.0 )
-  , mVbo( 0 )
-  , mIbo( 0 )
-  , mVao( 0 )
-  , mVertexShader( 0 )
-  , mFragmentxShader( 0 )
-  , mShaderProgram( 0 )
-  , mProjectionMatrix( 1.0 )
-  , mViewMatrix( 1.0 )
-  , mPanningActive( false )
-  , mPreviousMousePosition( 0.0f, 0.0f )
-  , mDrawingActive( false )
-  , mDrawColor( 255, 255, 255 )
 {
   wxGLContextAttrs contextAttrs;
   contextAttrs.CoreProfile().OGLVersion( 4, 5 ).Robust().ResetIsolation().EndList();

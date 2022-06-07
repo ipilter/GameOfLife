@@ -30,7 +30,7 @@ PixelBufferObject::~PixelBufferObject()
 
 void PixelBufferObject::allocate( uint32_t byteCount )
 {
-  glBufferData( GL_PIXEL_UNPACK_BUFFER, byteCount, NULL, GL_STATIC_DRAW ); //GL_STATIC_DRAW ??
+  glBufferData( GL_PIXEL_UNPACK_BUFFER, byteCount, NULL, GL_DYNAMIC_COPY ); // last param always can be this one ?
 }
 
 void PixelBufferObject::bindPbo()

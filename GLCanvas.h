@@ -62,14 +62,15 @@ private:
   std::unique_ptr<wxGLContext> mContext;
 
   // parameters
-  float mQuadSize;
-  uint32_t mTextureExponent;
+  float mQuadSize = 1.0f;
+  uint32_t mTextureExponent = 1;
 
   // mesh
-  uint32_t mVbo;
-  uint32_t mIbo;
-  uint32_t mVao;
+  uint32_t mVbo = 0;
+  uint32_t mIbo = 0;
+  uint32_t mVao = 0;
 
+  // textures
   std::vector<Texture::Ptr> mTextures;
 
   // pixel buffer list
@@ -81,14 +82,14 @@ private:
   uint32_t mShaderProgram = 0;
 
   // view
-  math::mat4 mProjectionMatrix;
-  math::mat4 mViewMatrix;
+  math::mat4 mProjectionMatrix = math::mat4( 1.0f );
+  math::mat4 mViewMatrix = math::mat4( 1.0f );
 
   // control
-  bool mPanningActive;
-  math::vec2 mPreviousMousePosition;
-  bool mDrawingActive;
-  math::uvec3 mDrawColor;
+  bool mPanningActive = false;
+  math::vec2 mPreviousMousePosition = math::vec2( 0.0 );
+  bool mDrawingActive = false;
+  math::uvec3 mDrawColor = math::uvec3( 255, 255, 255 );
 
   // pattern selection
   std::vector<Pattern::Ptr> mDrawPatterns;
