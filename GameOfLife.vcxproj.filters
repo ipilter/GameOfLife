@@ -47,13 +47,16 @@
     <ClInclude Include="WxMain.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="PBO.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="Pattern.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="OpenGL.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="PixelBufferObject.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
@@ -79,6 +82,15 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="Main.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Pattern.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Texture.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="PixelBufferObject.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>

@@ -3,19 +3,19 @@
 #include <algorithm>
 
 #include "timer.h"
-
 #include "GLCanvas.h"
 #include "MainFrame.h"
 #include "Util.h"
-
-#include "cuda_runtime.h"
-#include "cuda_gl_interop.h"
+#include "Logger.h"
 #include "kernel.cuh"
 
-GLCanvas::GLCanvas( const int textureExponent
+#include <cuda_gl_interop.h>
+#include <cuda_runtime.h>
+
+GLCanvas::GLCanvas( const uint32_t textureExponent
                     , wxWindow* parent
                     , wxWindowID id
-                    , const int* attribList
+                    , const int32_t* attribList
                     , const wxPoint& pos
                     , const wxSize& size
                     , long style
@@ -58,7 +58,7 @@ GLCanvas::GLCanvas( const int textureExponent
 
     cudaError_t error_test = cudaSuccess;
 
-    int gpuCount = 0;
+    int32_t gpuCount = 0;
     error_test = cudaGetDeviceCount( &gpuCount );
     if ( error_test != cudaSuccess )
     {
@@ -67,7 +67,7 @@ GLCanvas::GLCanvas( const int textureExponent
     }
 
     cudaDeviceProp prop = { 0 };
-    int gpuId = 0;
+    int32_t gpuId = 0;
     error_test = cudaGetDeviceProperties( &prop, gpuId );
     if ( error_test != cudaSuccess )
     {
@@ -90,7 +90,7 @@ GLCanvas::GLCanvas( const int textureExponent
   try
   {
     // create PBO TODO: multiple for double/triple buffering
-    mPBOs.push_back( std::make_unique<PBO>() );
+    mPBOs.push_back( std::make_unique<PixelBufferObject>() );
 
     CreateGeometry();
     CreateShaderProgram();
@@ -99,28 +99,28 @@ GLCanvas::GLCanvas( const int textureExponent
     mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 1.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
 
     mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 3, 3, std::vector<bool> {
-                                                                    0, 1, 0,
-                                                                    0, 0, 1,
-                                                                    1, 1, 1 } ) ) );
+                                                                     0, 1, 0,
+                                                                     0, 0, 1,
+                                                                     1, 1, 1 } ) ) );
 
 
     mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 5, 5, std::vector<bool> { // valid?
-      0, 1, 1, 1, 1,
-      1, 0, 0, 0, 1,
-      0, 0, 0, 0, 1,
-      1, 0, 0, 1, 0,
-      0, 1, 0, 0, 0 } ) ) );
+                                                                     0, 1, 1, 1, 1,
+                                                                     1, 0, 0, 0, 1,
+                                                                     0, 0, 0, 0, 1,
+                                                                     1, 0, 0, 1, 0,
+                                                                     0, 1, 0, 0, 0 } ) ) );
 
-    mDrawPatterns.push_back( std::move(  std::make_unique<Pattern>( 36, 9, std::vector<bool> {
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
-                                                                      1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      1,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, } ) ) );
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 36, 9, std::vector<bool> {
+                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+                                                                     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
   }
   catch ( const std::exception& e )
   {
@@ -195,7 +195,7 @@ void GLCanvas::CreateGeometry()
   glBindBuffer( GL_ARRAY_BUFFER, mVbo );
   glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIbo );
 
-  GLuint stride = 4 * sizeof( float );
+  uint32_t stride = 4 * sizeof( float );
   size_t vertexOffset = 0;
   size_t texelOffset = 2 * sizeof( float );
   glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( vertexOffset ) );
@@ -218,11 +218,11 @@ void GLCanvas::CreateShaderProgram()
   mFragmentxShader = CreateShader( GL_FRAGMENT_SHADER, fragentShaderSrc );
 
   glLinkProgram( mShaderProgram );
-  GLint linked( GL_FALSE );
+  int32_t linked( GL_FALSE );
   glGetProgramiv( mShaderProgram, GL_LINK_STATUS, &linked );
   if ( linked == GL_FALSE )
   {
-    int info_size( 0 );
+    int32_t info_size( 0 );
     glGetProgramiv( mShaderProgram, GL_INFO_LOG_LENGTH, &info_size );
     std::string msg;
     if ( info_size > 0 )
@@ -237,9 +237,9 @@ void GLCanvas::CreateShaderProgram()
   }
 }
 
-GLuint GLCanvas::CreateShader( GLuint kind, const std::string& src )
+uint32_t GLCanvas::CreateShader( uint32_t kind, const std::string& src )
 {
-  GLuint shaderId = glCreateShader( kind );
+  uint32_t shaderId = glCreateShader( kind );
   if ( shaderId == 0 )
   {
     std::stringstream ss;
@@ -253,11 +253,11 @@ GLuint GLCanvas::CreateShader( GLuint kind, const std::string& src )
 
   glCompileShader( shaderId );
 
-  GLint compiled( GL_FALSE );
+  int32_t compiled( GL_FALSE );
   glGetShaderiv( shaderId, GL_COMPILE_STATUS, &compiled );
   if ( compiled == GL_FALSE )
   {
-    int info_size( 0 );
+    int32_t info_size( 0 );
 
     glGetShaderiv( shaderId, GL_INFO_LOG_LENGTH, &info_size );
     std::string msg;
@@ -279,18 +279,18 @@ void GLCanvas::CreateTexture()
 {
   // create texture
   {
-    const GLuint size = static_cast<GLuint>( glm::pow( 2.0f, static_cast<float>( mTextureExponent ) ) );
-    int maxTextureSize = 0;
+    const uint32_t size = static_cast<uint32_t>( glm::pow( 2.0f, static_cast<float>( mTextureExponent ) ) );
+    int32_t maxTextureSize = 0;
     glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
     logger::Logger::instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
 
-    mTextures.push_back( std::make_unique<Texture>( glm::min( size, static_cast<GLuint>( maxTextureSize ) ), glm::min( size, static_cast<GLuint>( maxTextureSize ) ) ) );
+    mTextures.push_back( std::make_unique<Texture>( glm::min( size, static_cast<uint32_t>( maxTextureSize ) ), glm::min( size, static_cast<uint32_t>( maxTextureSize ) ) ) );
     logger::Logger::instance() << "Creating texture with size " << mTextures.front()->width() << "x" << mTextures.front()->height() << "\n";
   }
 
   const auto pixelCount = mTextures.front()->width() * mTextures.front()->height();
-  const auto byteCount = pixelCount * 4u;
-  
+  const auto byteCount = pixelCount * 4ull;
+
   // allocate PBO pixels
   mPBOs.front()->bindPbo();
   mPBOs.front()->allocate( byteCount );
@@ -352,12 +352,12 @@ void GLCanvas::SetPixel( const math::ivec2& pixel )
   // update pixels in PBO
   mPBOs.front()->bindPbo();
   GLubyte* pixelBuffer = mPBOs.front()->mapPboBuffer();
-  for ( GLuint y = 0; y < pattern->height(); ++y )
+  for ( uint32_t y = 0; y < pattern->height(); ++y )
   {
-    for ( GLuint x = 0; x < pattern->width(); ++x )
+    for ( uint32_t x = 0; x < pattern->width(); ++x )
     {
-      const GLuint offset = ( pixel.x + x ) * 4 + ( pixel.y + y ) * 4 * mTextures.front()->width();
-      if ( pattern->at(x, y) )
+      const uint32_t offset = ( pixel.x + x ) * 4 + ( pixel.y + y ) * 4 * mTextures.front()->width();
+      if ( pattern->at( x, y ) )
       {
         pixelBuffer[offset + 0] = mDrawColor.x;
         pixelBuffer[offset + 1] = mDrawColor.y;
@@ -393,11 +393,10 @@ void GLCanvas::Step()
   {
     mPBOs.front()->mapCudaResource();
     auto mappedPtr = mPBOs.front()->getCudaMappedPointer();
-    RunStepKernel( std::get<0>(mappedPtr), mTextures.front()->width(), mTextures.front()->height() );
+    RunStepKernel( std::get<0>( mappedPtr ), mTextures.front()->width(), mTextures.front()->height() );
     mPBOs.front()->unmapCudaResource();
 
     mPBOs.front()->bindPbo();
-    glPixelStorei( GL_UNPACK_ALIGNMENT, 4 );
 
     Timer t2;
     t2.start();
@@ -412,14 +411,14 @@ void GLCanvas::Step()
 
     Refresh();
   }
-  catch(const std::exception& e)
-  { 
+  catch ( const std::exception& e )
+  {
     std::stringstream ss;
     ss << "Step error: " << e.what();
     dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
   }
-  catch(...)
-  { 
+  catch ( ... )
+  {
     std::stringstream ss;
     ss << "unknown Step error: ";
     dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
@@ -436,7 +435,7 @@ void GLCanvas::Reset()
     // map cuda resource: front pbo
     mPBOs.front()->mapCudaResource();
     auto mappedPtr = mPBOs.front()->getCudaMappedPointer();
-    auto err = RunFillKernel( std::get<0>( mappedPtr ), 0, mTextures.front()->width(), mTextures.front()->height() );
+    RunFillKernel( std::get<0>( mappedPtr ), 0, mTextures.front()->width(), mTextures.front()->height() );
     mPBOs.front()->unmapCudaResource();
 
     mPBOs.front()->bindPbo();
@@ -447,8 +446,8 @@ void GLCanvas::Reset()
 
     Refresh();
   }
-  catch(const std::exception& e)
-  { 
+  catch ( const std::exception& e )
+  {
     std::stringstream ss;
     ss << "Reset error: " << e.what();
     dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
@@ -466,12 +465,12 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
   glUseProgram( mShaderProgram );
 
   const math::mat4 vpMatrix = mProjectionMatrix * mViewMatrix;
-  GLint uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) );
+  const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) );
   glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
 
   mTextures.front()->bindTextureUnit( 0 );
 
-  glDrawElements( GL_TRIANGLES, static_cast<GLsizei>( 6 ), GL_UNSIGNED_INT, 0 );  // 6 = index count
+  glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );  // 6 = index count
 
   mTextures.front()->unbindTextureUnit();
   glBindVertexArray( 0 );
@@ -536,7 +535,7 @@ void GLCanvas::OnMouseWheel( wxMouseEvent& event )
   const float scale( event.GetWheelRotation() < 0 ? 1.0f - scaleFactor : 1.0f + scaleFactor );
 
   const math::vec2 focusPoint( static_cast<float>( event.GetX() ), static_cast<float>( event.GetY() ) );
-  const auto worldFocusPoint = ScreenToWorld( focusPoint );
+  const math::vec2 worldFocusPoint = ScreenToWorld( focusPoint );
 
   mViewMatrix = glm::translate( glm::scale( glm::translate( mViewMatrix
                                                             , math::vec3( worldFocusPoint, 0.0f ) )
