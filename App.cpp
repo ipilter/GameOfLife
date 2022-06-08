@@ -27,7 +27,6 @@ int32_t App::OnExit()
   return 1;
 }
 
-
 void App::OnKey( wxKeyEvent& event )
 {
   if ( event.GetKeyCode() == WXK_ESCAPE )

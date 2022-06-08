@@ -488,15 +488,6 @@ void GLCanvas::OnMouseMove( wxMouseEvent& event )
   const math::vec2 worldPos( ScreenToWorld( screenPos ) );
   const math::ivec2 imagePos( WorldToImage( worldPos ) );
 
-  {
-    std::stringstream ss;
-    ss << "screen: " << screenPos << " world: " << worldPos;
-    if ( imagePos != math::ivec2( -1, -1 ) )
-    {
-      ss << " image: " << imagePos;
-    }
-  }
-
   if ( mPanningActive )
   {
     const math::vec2 mouse_delta( worldPos - ScreenToWorld( mPreviousMousePosition ) );
@@ -510,6 +501,15 @@ void GLCanvas::OnMouseMove( wxMouseEvent& event )
     SetPixel( imagePos );
     Refresh();
   }
+
+  //{
+  //  std::stringstream ss;
+  //  ss << "screen: " << screenPos << " world: " << worldPos;
+  //  if ( imagePos != math::ivec2( -1, -1 ) )
+  //  {
+  //    ss << " image: " << imagePos;
+  //  }
+  //}
 }
 
 void GLCanvas::OnMouseWheel( wxMouseEvent& event )
