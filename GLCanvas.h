@@ -44,10 +44,10 @@ private:
   void CreateTexture();
   uint32_t CreateShader( uint32_t kind, const std::string& src );
 
-  math::vec2 ScreenToWorld( const math::vec2& screenSpacePoint );
+  math::vec2 ScreenToWorld( const math::ivec2& screenSpacePoint );
   math::ivec2 WorldToImage( const math::vec2& worldSpacePoint );
 
-  void SetPixel( const math::ivec2& pixel );
+  void SetPixel( const math::uvec2& pixel );
   void OnPaint( wxPaintEvent& event );
   void OnSize( wxSizeEvent& event );
   void OnMouseMove( wxMouseEvent& event );

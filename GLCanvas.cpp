@@ -165,7 +165,7 @@ void GLCanvas::CreateGeometry()
                                      , mQuadSize, mQuadSize, 1.0f, 0.0f // vtx tr
   };
 
-  const std::vector<unsigned> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+  const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
 
   glGenBuffers( 1, &mVbo );
   glBindBuffer( GL_ARRAY_BUFFER, mVbo );
@@ -173,7 +173,7 @@ void GLCanvas::CreateGeometry()
 
   glGenBuffers( 1, &mIbo );
   glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIbo );
-  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( unsigned ) * indices.size(), &indices.front(), GL_STATIC_DRAW );
+  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( uint32_t ) * indices.size(), &indices.front(), GL_STATIC_DRAW );
 
   glGenVertexArrays( 1, &mVao );
   glBindVertexArray( mVao );
@@ -307,11 +307,11 @@ void GLCanvas::CreateTexture()
   dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
 }
 
-math::vec2 GLCanvas::ScreenToWorld( const math::vec2& screen )
+math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
 {
-  const math::vec4 ndc( screen.x / static_cast<float>( GetSize().GetX() ) * 2.0 - 1.0
-                        , -screen.y / static_cast<float>( GetSize().GetY() ) * 2.0 + 1.0
-                        , 0.0, 1.0 );
+  const math::vec4 ndc( screenSpacePoint.x / static_cast<float>( GetSize().GetX() ) * 2.0f - 1.0f
+                        , -screenSpacePoint.y / static_cast<float>( GetSize().GetY() ) * 2.0f + 1.0f
+                        , 0.0f, 1.0f );
 
   const math::mat4 invVpMatrix( glm::inverse( mProjectionMatrix * mViewMatrix ) );
   const math::vec4 worldSpacePoint( invVpMatrix * ndc ); // !!  vector and column matrix multiplication !!
@@ -329,45 +329,46 @@ math::ivec2 GLCanvas::WorldToImage( const math::vec2& worldSpacePoint )
   return math::ivec2( glm::floor( x ), glm::floor( y ) );
 }
 
-void GLCanvas::SetPixel( const math::ivec2& pixel )
+void GLCanvas::SetPixel( const math::uvec2& pixel )
 {
-  Timer t;
-  t.start();
-
-  const auto& pattern = mDrawPatterns[1];
-
-  // update pixels in PBO
-  mPBOs.front()->bindPbo();
-  GLubyte* pixelBuffer = mPBOs.front()->mapPboBuffer();
-  for ( uint32_t y = 0; y < pattern->height(); ++y )
+  try
   {
-    for ( uint32_t x = 0; x < pattern->width(); ++x )
+    const auto& pattern = mDrawPatterns[1];
+
+    // update pixels in PBO
+    mPBOs.front()->bindPbo();
+    GLubyte* pixelBuffer = mPBOs.front()->mapPboBuffer();
+    for ( uint32_t y = 0; y < pattern->height(); ++y )
     {
-      const uint32_t offset = ( pixel.x + x ) * 4 + ( pixel.y + y ) * 4 * mTextures.front()->width();
-      if ( pattern->at( x, y ) )
+      for ( uint32_t x = 0; x < pattern->width(); ++x )
       {
-        pixelBuffer[offset + 0] = mDrawColor.x;
-        pixelBuffer[offset + 1] = mDrawColor.y;
-        pixelBuffer[offset + 2] = mDrawColor.z;
+        const uint64_t offset = ( pixel.x + x ) * 4ull + ( pixel.y + y ) * 4ull * mTextures.front()->width();
+        if ( pattern->at( x, y ) )
+        {
+          pixelBuffer[offset + 0] = mDrawColor.x;
+          pixelBuffer[offset + 1] = mDrawColor.y;
+          pixelBuffer[offset + 2] = mDrawColor.z;
+        }
       }
     }
+    mPBOs.front()->unmapPboBuffer();
+
+    // update texture region from PBO
+    mTextures.front()->bind();
+    mTextures.front()->updateFromPBO( pixel.x, pixel.y, pattern->width(), pattern->height() );
+    mTextures.front()->unbind();
+
+    // done
+    mPBOs.front()->unbindPbo();
+
+    glFlush();
   }
-  mPBOs.front()->unmapPboBuffer();
-
-  // update texture region from PBO
-  mTextures.front()->bind();
-  mTextures.front()->updateFromPBO( pixel.x, pixel.y, pattern->width(), pattern->height() );
-  mTextures.front()->unbind();
-
-  // done
-  mPBOs.front()->unbindPbo();
-
-  glFlush();
-  t.stop();
-
-  std::stringstream ss;
-  ss << "SetPixel: " << t.ms();
-  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
+  catch ( const std::exception& e )
+  {
+    std::stringstream ss;
+    ss << "SetPixel error: " << e.what();
+    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
+  }
 }
 
 void GLCanvas::Step()
@@ -375,26 +376,19 @@ void GLCanvas::Step()
   Timer t;
   t.start();
 
-  double textureUpdateRuntime = 0.0;
   try
   {
     mPBOs.front()->mapCudaResource();
-    auto mappedPtr = mPBOs.front()->getCudaMappedPointer();
-    RunStepKernel( std::get<0>( mappedPtr ), mTextures.front()->width(), mTextures.front()->height() );
+    uint8_t* mappedPtr = mPBOs.front()->getCudaMappedPointer();
+    RunStepKernel( mappedPtr, mTextures.front()->width(), mTextures.front()->height() );
     mPBOs.front()->unmapCudaResource();
 
     mPBOs.front()->bindPbo();
 
-    Timer t2;
-    t2.start();
     mTextures.front()->bind();
     mTextures.front()->updateFromPBO();
     mTextures.front()->unbind();
-    t2.stop();
-    textureUpdateRuntime = t2.ms();
     mPBOs.front()->unbindPbo();
-    glFlush();
-    t.stop();
 
     Refresh();
   }
@@ -410,8 +404,10 @@ void GLCanvas::Step()
     ss << "unknown Step error: ";
     dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
   }
+
+  t.stop();
   std::stringstream ss;
-  ss << "Step " << std::fixed << std::setprecision( 4 ) << t.ms() << " ms, texture update: " << textureUpdateRuntime << " ms";
+  ss << "Step " << std::fixed << std::setprecision( 4 ) << t.ms() << " ms";
   dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
 }
 
@@ -421,8 +417,8 @@ void GLCanvas::Reset()
   {
     // map cuda resource: front pbo
     mPBOs.front()->mapCudaResource();
-    auto mappedPtr = mPBOs.front()->getCudaMappedPointer();
-    RunFillKernel( std::get<0>( mappedPtr ), 0, mTextures.front()->width(), mTextures.front()->height() );
+    uint8_t* mappedPtr = mPBOs.front()->getCudaMappedPointer();
+    RunFillKernel( mappedPtr, 0, mTextures.front()->width(), mTextures.front()->height() );
     mPBOs.front()->unmapCudaResource();
 
     mPBOs.front()->bindPbo();

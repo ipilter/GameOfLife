@@ -50,9 +50,6 @@
     <ClInclude Include="Pattern.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="OpenGL.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="Texture.h">
       <Filter>Headers</Filter>
     </ClInclude>

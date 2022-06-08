@@ -5,7 +5,7 @@
 
 #include "Logger.h"
 
-MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const int exponent, const int deltaTime )
+MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const uint32_t exponent, const uint32_t deltaTime )
   : wxFrame( parent, wxID_ANY, title, pos, size )
   , mGLCanvas( nullptr )
   , mColorButton( nullptr )

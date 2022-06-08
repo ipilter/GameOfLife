@@ -57,7 +57,8 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <DisableSpecificWarnings>26812</DisableSpecificWarnings>
+      <DisableSpecificWarnings>
+      </DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -80,7 +81,8 @@ rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x6
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <DisableSpecificWarnings>26812</DisableSpecificWarnings>
+      <DisableSpecificWarnings>
+      </DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -107,7 +109,6 @@ rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x6
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MainFrame.h" />
     <ClInclude Include="Math.h" />
-    <ClInclude Include="OpenGL.h" />
     <ClInclude Include="Pattern.h" />
     <ClInclude Include="PixelBufferObject.h" />
     <ClInclude Include="Texture.h" />

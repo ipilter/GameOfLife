@@ -45,9 +45,9 @@ void PixelBufferObject::unbindPbo()
   mBound = false;
 }
 
-GLubyte* PixelBufferObject::mapPboBuffer()
+uint8_t* PixelBufferObject::mapPboBuffer()
 {
-  return reinterpret_cast<GLubyte*>( glMapBuffer( GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY ) );
+  return reinterpret_cast<uint8_t*>( glMapBuffer( GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY ) );
 }
 
 void PixelBufferObject::unmapPboBuffer()
@@ -66,7 +66,6 @@ void PixelBufferObject::registerCudaResource()
 
 void PixelBufferObject::mapCudaResource()
 {
-
   cudaError_t err = cudaGraphicsMapResources( 1, &mCudaResource );
   if ( err != cudaSuccess )
   {
@@ -83,16 +82,16 @@ void PixelBufferObject::unmapCudaResource()
   }
 }
 
-std::tuple<unsigned char*, size_t> PixelBufferObject::getCudaMappedPointer()
+uint8_t* PixelBufferObject::getCudaMappedPointer()
 {
-  unsigned char* ptr = nullptr;
-  size_t mapped_size;
+  uint8_t* ptr = nullptr;
+  size_t mapped_size = 0;
   cudaError_t err = cudaGraphicsResourceGetMappedPointer( reinterpret_cast<void**>( &ptr ), &mapped_size, mCudaResource );
   if ( err != cudaSuccess )
   {
     throw std::runtime_error( "cudaGraphicsResourceGetMappedPointer failed" );
   }
-  return std::make_tuple( ptr, mapped_size );
+  return ptr;
 }
 
 void PixelBufferObject::bindCudaResource()

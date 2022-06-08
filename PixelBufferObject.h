@@ -1,6 +1,5 @@
 #pragma once
 
-#include <tuple>
 #include <cstdint>
 #include <memory>
 #include <driver_types.h>
@@ -27,7 +26,7 @@ public:
   void registerCudaResource();
   void mapCudaResource();
   void unmapCudaResource();
-  std::tuple<unsigned char*, size_t> getCudaMappedPointer();
+  uint8_t* getCudaMappedPointer();
 
   void bindCudaResource();
   void unbindCudaResource();
