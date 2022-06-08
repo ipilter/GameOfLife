@@ -56,6 +56,9 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <DisableSpecificWarnings>
+      </DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -77,6 +80,9 @@ rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x6
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <DisableSpecificWarnings>
+      </DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -103,9 +109,9 @@ rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x6
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MainFrame.h" />
     <ClInclude Include="Math.h" />
-    <ClInclude Include="OpenGL.h" />
     <ClInclude Include="Pattern.h" />
-    <ClInclude Include="PBO.h" />
+    <ClInclude Include="PixelBufferObject.h" />
+    <ClInclude Include="Texture.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="Util.h" />
     <ClInclude Include="WxMain.h" />
@@ -119,6 +125,9 @@ rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x6
     <ClCompile Include="GLCanvas.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MainFrame.cpp" />
+    <ClCompile Include="Pattern.cpp" />
+    <ClCompile Include="PixelBufferObject.cpp" />
+    <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Timer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

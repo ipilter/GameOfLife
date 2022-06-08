@@ -1,33 +1,25 @@
 #pragma once
 
-#include <gl/glew.h>
+#include <cstdint>
+#include <vector>
+#include <memory>
 
 // pattern storage
-struct Pattern
+class Pattern
 {
-  Pattern( GLuint w, GLuint h, const std::vector<bool>& bits )
-    : mWidth( w )
-    , mHeight( h )
-    , mBits( bits )
-  {}
+public:
+  using Ptr = std::unique_ptr<Pattern>;
 
-  bool at( const GLuint x, const GLuint y ) const
-  {
-    return mBits[x + mWidth * y];
-  }
+public:
+  Pattern( const uint32_t w, const uint32_t h, const std::vector<bool>& bits );
 
-  GLuint width() const
-  {
-    return mWidth;
-  }
+  bool at( const uint32_t x, const uint32_t y ) const;
 
-  GLuint height() const
-  {
-    return mHeight;
-  }
+  uint32_t width() const;
+  uint32_t height() const;
 
 private:
-  GLuint mWidth;
-  GLuint mHeight;
+  uint32_t mWidth;
+  uint32_t mHeight;
   std::vector<bool> mBits;
 };

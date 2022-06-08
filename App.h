@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "WxMain.h"
 
 class MainFrame;
@@ -10,7 +11,7 @@ public:
   virtual bool OnInit();
 
 private:
-  virtual int OnExit();
+  virtual int32_t OnExit();
   void OnKey( wxKeyEvent& event );
 
   virtual void OnInitCmdLine(wxCmdLineParser& parser);
@@ -18,6 +19,6 @@ private:
 
 private:
   MainFrame* mMainFrame;
-  int mTextureSize;
-  int mDeltaTime;
+  uint32_t mTextureSize = 8;
+  uint32_t mDeltaTime = 100;
 };

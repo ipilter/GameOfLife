@@ -1,90 +1,72 @@
 ﻿
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
 #include <sstream>
 #include <iomanip>
 #include <stdio.h>
 #include <cmath>
+#include <device_launch_parameters.h>
 
-__device__ unsigned char getValue( unsigned char* rgb, int x, int y, int width, int height )
+#include "Kernel.cuh"
+
+__device__ uint8_t getValue( uint8_t* rgb, int32_t x, int32_t y, uint32_t width, uint32_t height )
 {
-  int rx = x;
-  int ry = y;
-
-  if ( x < 0 )
-  {
-    rx = width - 1;
-  }
-  else if ( x >= width )
-  {
-    rx = 0;
-  }
-
-  if ( y < 0 )
-  {
-    ry = height - 1;
-  }
-  else if ( y >= height )
-  {
-    ry = 0;
-  }
-
-  return rgb[rx * 4 + ry * 4 * width + 0]; // first component from BGRA
+  const int32_t rx = x < 0 ? width - 1 : x >= width ? 0 : x;
+  const int32_t ry = y < 0 ? height - 1 : y >= height ? 0 : y;
+  return rgb[rx * 4 + ry * 4 * width]; // first component from BGRA
 }
 
-__global__ void StepKernel( unsigned char* rgb, int const width, int const height )
+__global__ void StepKernel( uint8_t* rgb, const uint32_t width, const uint32_t height )
 {
-  const int mDecideData[] = {
+  const bool mDecideData[] = {
   //0  1  2  3  4  5  6  7  8    living neighbour count
     0, 0, 0, 1, 0, 0, 0, 0, 0,   // dead cell new state
     0, 0, 1, 1, 0, 0, 0, 0, 0 }; // live cell new state
 
-  unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
-  unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
+  uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+  uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
 
   if ( x >= width || y >= height )
   {
     return;
   }
 
-  unsigned char current = (getValue( rgb, x, y, width, height ) == 255 ? 1 : 0);
-  int sum = (getValue( rgb, x-1, y-1, width, height ) == 255 ? 1 : 0) +
-            (getValue( rgb,   x, y-1, width, height ) == 255 ? 1 : 0) +
-            (getValue( rgb, x+1, y-1, width, height ) == 255 ? 1 : 0) +
-            (getValue( rgb, x-1,   y, width, height ) == 255 ? 1 : 0) +
-            (getValue( rgb, x+1,   y, width, height ) == 255 ? 1 : 0) +
-            (getValue( rgb, x-1, y+1, width, height ) == 255 ? 1 : 0) +
-            (getValue( rgb,   x, y+1, width, height ) == 255 ? 1 : 0) +
-            (getValue( rgb, x+1, y+1, width, height ) == 255 ? 1 : 0);
+  const  uint8_t current = (getValue( rgb, x, y, width, height ) == 255 ? 1 : 0);
+  const  uint32_t sum = (getValue( rgb, x-1, y-1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( rgb,   x, y-1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( rgb, x+1, y-1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( rgb, x-1,   y, width, height ) == 255 ? 1 : 0) +
+                        (getValue( rgb, x+1,   y, width, height ) == 255 ? 1 : 0) +
+                        (getValue( rgb, x-1, y+1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( rgb,   x, y+1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( rgb, x+1, y+1, width, height ) == 255 ? 1 : 0);
 
-  const unsigned char newState = (mDecideData[current * 9 + sum] > 0 ? 255 : 0);
-  const int offset = x * 4 + width * y * 4;
+  const uint8_t newState = (mDecideData[current * 9 + sum] > 0 ? 255 : 0);
+  const uint32_t offset = x * 4 + width * y * 4;
   rgb[offset + 0] = newState;
   rgb[offset + 1] = newState;
   rgb[offset + 2] = newState;
 
-  //const int offset = x * 3 + width * y * 3;
+  // rainbow test pixels
   //rgb[offset + 0] = 255 * (x / float(width));
   //rgb[offset + 1] = 55;
   //rgb[offset + 2] = 255 * (y / float(height));
 }
 
-__global__ void FillKernel( unsigned char* buffer, const int width, const int height, const unsigned char value )
+__global__ void FillKernel( uint8_t* buffer, const uint32_t width, const uint32_t height, const uint8_t value )
 {
-  unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
-  unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
+  const uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+  const uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
   if ( x >= width || y >= height )
   {
     return;
   }
-  const int offset = x * 4 + width * y * 4;
+  const size_t offset = x * 4ull + width * y * 4ull;
   buffer[offset + 0] = value;
   buffer[offset + 1] = value;
   buffer[offset + 2] = value;
   buffer[offset + 3] = value;
 }
 
-cudaError_t RunFillKernel(unsigned char* buffer, const unsigned char value, const int width, const int height)
+cudaError_t RunFillKernel(uint8_t* buffer, const uint8_t value, const uint32_t width, const uint32_t height)
 {
   dim3 threadsPerBlock( 32, 32, 1 );
   dim3 blocksPerGrid( width / threadsPerBlock.x, height / threadsPerBlock.y, 1 ); // TODO works only with power of 2 texture sizes !!
@@ -112,7 +94,7 @@ cudaError_t RunFillKernel(unsigned char* buffer, const unsigned char value, cons
   return cudaGetLastError();
 }
 
-cudaError_t RunStepKernel( unsigned char* rgb, int width, int height )
+cudaError_t RunStepKernel( uint8_t* rgb, uint32_t width, uint32_t height )
 {
   dim3 threadsPerBlock( 32, 32, 1 );
   dim3 blocksPerGrid( width / threadsPerBlock.x, height / threadsPerBlock.y, 1 ); // TODO works only with power of 2 texture sizes !!

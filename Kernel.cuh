@@ -1,7 +1,7 @@
 #pragma once
 
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
+#include <cstdint>
+#include <cuda_runtime.h>
 
-cudaError_t RunFillKernel( unsigned char* buffer, const unsigned char value, const int width, const int height );
-cudaError_t RunStepKernel( unsigned char* pos, int width, int height );
+cudaError_t RunFillKernel( uint8_t* buffer, const uint8_t value, const uint32_t width, const uint32_t height );
+cudaError_t RunStepKernel( uint8_t* pos, uint32_t width, uint32_t height );

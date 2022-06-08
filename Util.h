@@ -3,6 +3,7 @@
 #include <sstream>
 #include <fstream>
 #include <stdexcept>
+#include <cstdint>
 
 namespace util
 {
@@ -39,7 +40,7 @@ inline T Random( const T min, const T max )
   static bool Initialized = false;
   if ( !Initialized )
   {
-    srand( static_cast<unsigned>( std::time( nullptr ) ) );
+    srand( static_cast<uint32_t>( std::time( nullptr ) ) );
     Initialized = true;
   }
   return min + T( std::rand() ) / T( RAND_MAX ) * ( max - min );
@@ -70,7 +71,7 @@ inline void Write_t( std::ofstream& stream, const T& t )
 template<>
 inline void Write_t( std::ofstream& stream, const std::string& str )
 {
-  size_t count( str.length() );
+  const size_t count( str.length() );
   Write_t( stream, count );
   stream.write( str.c_str(), count );
 }

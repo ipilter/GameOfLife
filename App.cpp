@@ -9,20 +9,17 @@
 
 bool App::OnInit()
 {
-  mTextureSize = 8; // default
-  mDeltaTime = 500;
-
   wxApp::OnInit();
 
   logger::Logger::instance() << __FUNCTION__ << "\n";
 
   Bind( wxEVT_KEY_DOWN, &App::OnKey, this );
 
-  mMainFrame = new MainFrame( nullptr, L"wxOpengl", wxDefaultPosition, { 1920, 1080 }, mTextureSize, mDeltaTime );
-  return mMainFrame->Show(true);
+  mMainFrame = new MainFrame( nullptr, L"GPU Game Of Life", wxDefaultPosition, { 1920, 1080 }, mTextureSize, mDeltaTime );
+  return mMainFrame->Show( true );
 }
 
-int App::OnExit()
+int32_t App::OnExit()
 {
   logger::Logger::instance() << __FUNCTION__ << "\n";
 
@@ -60,12 +57,12 @@ bool App::OnCmdLineParsed( wxCmdLineParser& parser )
   long parsedOption = 0;
   if ( parser.Found( wxT("e"), &parsedOption ) )
   {
-    mTextureSize = static_cast<int>( parsedOption );
+    mTextureSize = static_cast<uint32_t>( parsedOption );
   }
   parsedOption = 0;
   if ( parser.Found( wxT("d"), &parsedOption ) )
   {
-    mDeltaTime = static_cast<int>( parsedOption );
+    mDeltaTime = static_cast<uint32_t>( parsedOption );
   }
 
   return true;
