@@ -73,8 +73,10 @@ private:
   // textures
   std::vector<Texture::Ptr> mTextures;
 
-  // pixel buffer list
+  // pixel buffers
   std::vector<PixelBufferObject::Ptr> mPBOs;
+  uint32_t mFrontBufferIdx = 0;
+  uint32_t mBackBufferIdx = 0;
 
   // shader
   uint32_t mVertexShader = 0;
@@ -91,6 +93,6 @@ private:
   bool mDrawingActive = false;
   math::uvec3 mDrawColor = math::uvec3( 255, 255, 255 );
 
-  // pattern selection
+  // patterns
   std::vector<Pattern::Ptr> mDrawPatterns;
 };
