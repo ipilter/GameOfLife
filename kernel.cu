@@ -7,14 +7,14 @@
 
 #include "Kernel.cuh"
 
-__device__ uint8_t getValue( uint8_t* rgb, int32_t x, int32_t y, uint32_t width, uint32_t height )
+__device__ uint8_t getValue( uint8_t* buffer, int32_t x, int32_t y, uint32_t width, uint32_t height )
 {
   const int32_t rx = x < 0 ? width - 1 : x >= width ? 0 : x;
   const int32_t ry = y < 0 ? height - 1 : y >= height ? 0 : y;
-  return rgb[rx * 4 + ry * 4 * width]; // first component from BGRA
+  return buffer[rx * 4 + ry * 4 * width]; // first component from BGRA
 }
 
-__global__ void StepKernel( uint8_t* rgb, const uint32_t width, const uint32_t height )
+__global__ void StepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, const uint32_t width, const uint32_t height )
 {
   const bool mDecideData[] = {
   //0  1  2  3  4  5  6  7  8    living neighbour count
@@ -29,26 +29,26 @@ __global__ void StepKernel( uint8_t* rgb, const uint32_t width, const uint32_t h
     return;
   }
 
-  const  uint8_t current = (getValue( rgb, x, y, width, height ) == 255 ? 1 : 0);
-  const  uint32_t sum = (getValue( rgb, x-1, y-1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( rgb,   x, y-1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( rgb, x+1, y-1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( rgb, x-1,   y, width, height ) == 255 ? 1 : 0) +
-                        (getValue( rgb, x+1,   y, width, height ) == 255 ? 1 : 0) +
-                        (getValue( rgb, x-1, y+1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( rgb,   x, y+1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( rgb, x+1, y+1, width, height ) == 255 ? 1 : 0);
+  const  uint8_t current = (getValue( frontBuffer, x, y, width, height ) == 255 ? 1 : 0);
+  const  uint32_t sum = (getValue( frontBuffer, x-1, y-1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( frontBuffer,   x, y-1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( frontBuffer, x+1, y-1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( frontBuffer, x-1,   y, width, height ) == 255 ? 1 : 0) +
+                        (getValue( frontBuffer, x+1,   y, width, height ) == 255 ? 1 : 0) +
+                        (getValue( frontBuffer, x-1, y+1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( frontBuffer,   x, y+1, width, height ) == 255 ? 1 : 0) +
+                        (getValue( frontBuffer, x+1, y+1, width, height ) == 255 ? 1 : 0);
 
   const uint8_t newState = (mDecideData[current * 9 + sum] > 0 ? 255 : 0);
   const uint32_t offset = x * 4 + width * y * 4;
-  rgb[offset + 0] = newState;
-  rgb[offset + 1] = newState;
-  rgb[offset + 2] = newState;
+  backBuffer[offset + 0] = newState;
+  backBuffer[offset + 1] = newState;
+  backBuffer[offset + 2] = newState;
 
   // rainbow test pixels
-  //rgb[offset + 0] = 255 * (x / float(width));
-  //rgb[offset + 1] = 55;
-  //rgb[offset + 2] = 255 * (y / float(height));
+  //backBuffer[offset + 0] = 255 * (x / float(width));
+  //backBuffer[offset + 1] = 55;
+  //backBuffer[offset + 2] = 255 * (y / float(height));
 }
 
 __global__ void FillKernel( uint8_t* buffer, const uint32_t width, const uint32_t height, const uint8_t value )
@@ -94,7 +94,7 @@ cudaError_t RunFillKernel(uint8_t* buffer, const uint8_t value, const uint32_t w
   return cudaGetLastError();
 }
 
-cudaError_t RunStepKernel( uint8_t* rgb, uint32_t width, uint32_t height )
+cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t width, uint32_t height )
 {
   dim3 threadsPerBlock( 32, 32, 1 );
   dim3 blocksPerGrid( width / threadsPerBlock.x, height / threadsPerBlock.y, 1 ); // TODO works only with power of 2 texture sizes !!
@@ -112,7 +112,7 @@ cudaError_t RunStepKernel( uint8_t* rgb, uint32_t width, uint32_t height )
   cudaEventCreate( &stop );
 
   cudaEventRecord( start, 0 );
-  StepKernel <<<blocksPerGrid, threadsPerBlock>>> ( rgb, width, height );
+  StepKernel <<<blocksPerGrid, threadsPerBlock>>> ( frontBuffer, backBuffer, width, height );
   cudaEventRecord( stop, 0 );
   cudaEventSynchronize( stop );
 

@@ -95,4 +95,5 @@ private:
 
   // patterns
   std::vector<Pattern::Ptr> mDrawPatterns;
+  size_t mDrawPatternIdx = 0;
 };

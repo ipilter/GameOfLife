@@ -76,6 +76,7 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
     // create PBOs
     mPBOs.push_back( std::make_unique<PixelBufferObject>() );
     mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+
     mFrontBufferIdx = 0;
     mBackBufferIdx = 1;
 
@@ -84,6 +85,9 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
     CreateTexture();
 
     mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 1.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 1, 1, std::vector<bool> {
+                                                                     1 } ) ) );
 
     mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 3, 3, std::vector<bool> {
                                                                      0, 1, 0,
@@ -108,6 +112,7 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
+    mDrawPatternIdx = 0;
   }
   catch ( const std::exception& e )
   {
@@ -282,9 +287,11 @@ void GLCanvas::CreateTexture()
   mPBOs[mBackBufferIdx]->bindPbo();
   mPBOs[mBackBufferIdx]->allocate( byteCount );
   mPBOs[mBackBufferIdx]->unbindPbo();
+  mPBOs[mBackBufferIdx]->registerCudaResource(); // ? why here ?
 
   mPBOs[mFrontBufferIdx]->bindPbo();
   mPBOs[mFrontBufferIdx]->allocate( byteCount );
+  mPBOs[mFrontBufferIdx]->registerCudaResource(); // ? why here ?
 
   // init PBO data with zero
   {
@@ -298,7 +305,6 @@ void GLCanvas::CreateTexture()
 
   // create texture from PBO pixels
   mTextures.front()->createFromPBO();
-  mPBOs[mFrontBufferIdx]->registerCudaResource();
 
   // unbind texture
   mTextures.front()->unbind();
@@ -337,16 +343,23 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
 {
   try
   {
-    const auto& pattern = mDrawPatterns[1];
+    const auto& pattern = mDrawPatterns[mDrawPatternIdx];
 
-    // update pixels in PBO
+    // update pixels in front PBO
     mPBOs[mFrontBufferIdx]->bindPbo();
-    GLubyte* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
+    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
     for ( uint32_t y = 0; y < pattern->height(); ++y )
     {
       for ( uint32_t x = 0; x < pattern->width(); ++x )
       {
-        const uint64_t offset = ( pixel.x + x ) * 4ull + ( pixel.y + y ) * 4ull * mTextures.front()->width();
+        const uint32_t rx = pixel.x + x;
+        const uint32_t ry = pixel.y + y;
+        if ( rx >=  mTextures.front()->width() || ry >=  mTextures.front()->height() )
+        {
+          continue;
+        }
+
+        const uint64_t offset = rx * 4ull + ry * 4ull * mTextures.front()->width();
         if ( pattern->at( x, y ) )
         {
           pixelBuffer[offset + 0] = mDrawColor.x;
@@ -357,12 +370,10 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     }
     mPBOs[mFrontBufferIdx]->unmapPboBuffer();
 
-    // update texture region from PBO
+    // update texture region from front PBO
     mTextures.front()->bind();
     mTextures.front()->updateFromPBO( pixel.x, pixel.y, pattern->width(), pattern->height() );
     mTextures.front()->unbind();
-
-    // done
     mPBOs[mFrontBufferIdx]->unbindPbo();
 
     glFlush();
@@ -375,6 +386,33 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
   }
 }
 
+void GLCanvas::Reset()
+{
+  try
+  {
+    // reset pixels in the front buffer
+    mPBOs[mFrontBufferIdx]->mapCudaResource();
+    uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+    RunFillKernel( mappedPtr, 0, mTextures.front()->width(), mTextures.front()->height() );
+    mPBOs[mFrontBufferIdx]->unmapCudaResource();
+
+    // update texture from the front buffer
+    mPBOs[mFrontBufferIdx]->bindPbo();
+    mTextures.front()->bind();
+    mTextures.front()->updateFromPBO();
+    mTextures.front()->bind();
+    mPBOs[mFrontBufferIdx]->unbindPbo();
+
+    Refresh();
+  }
+  catch ( const std::exception& e )
+  {
+    std::stringstream ss;
+    ss << "Reset error: " << e.what();
+    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
+  }
+}
+
 void GLCanvas::Step()
 {
   Timer t;
@@ -383,12 +421,16 @@ void GLCanvas::Step()
   try
   {
     mPBOs[mFrontBufferIdx]->mapCudaResource();
-    uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-    RunStepKernel( mappedPtr, mTextures.front()->width(), mTextures.front()->height() );
+    mPBOs[mBackBufferIdx]->mapCudaResource();
+    uint8_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+    uint8_t* mappedBackPtr = mPBOs[mBackBufferIdx]->getCudaMappedPointer();
+    RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->width(), mTextures.front()->height() );
     mPBOs[mFrontBufferIdx]->unmapCudaResource();
+    mPBOs[mBackBufferIdx]->unmapCudaResource();
+
+    std::swap( mFrontBufferIdx, mBackBufferIdx );
 
     mPBOs[mFrontBufferIdx]->bindPbo();
-
     mTextures.front()->bind();
     mTextures.front()->updateFromPBO();
     mTextures.front()->unbind();
@@ -413,32 +455,6 @@ void GLCanvas::Step()
   std::stringstream ss;
   ss << "Step " << std::fixed << std::setprecision( 4 ) << t.ms() << " ms";
   dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-}
-
-void GLCanvas::Reset()
-{
-  try
-  {
-    // map cuda resource: front pbo
-    mPBOs[mFrontBufferIdx]->mapCudaResource();
-    uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-    RunFillKernel( mappedPtr, 0, mTextures.front()->width(), mTextures.front()->height() );
-    mPBOs[mFrontBufferIdx]->unmapCudaResource();
-
-    mPBOs[mFrontBufferIdx]->bindPbo();
-    mTextures.front()->bind();
-    mTextures.front()->updateFromPBO();
-    mTextures.front()->bind();
-    mPBOs[mFrontBufferIdx]->unbindPbo();
-
-    Refresh();
-  }
-  catch ( const std::exception& e )
-  {
-    std::stringstream ss;
-    ss << "Reset error: " << e.what();
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  }
 }
 
 void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )

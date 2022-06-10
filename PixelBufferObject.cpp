@@ -94,22 +94,3 @@ uint8_t* PixelBufferObject::getCudaMappedPointer()
   return ptr;
 }
 
-void PixelBufferObject::bindCudaResource()
-{
-  cudaError_t err = cudaSuccess;
-  err = cudaGraphicsMapResources( 1, &mCudaResource );
-  if ( err != cudaSuccess )
-  {
-    throw std::runtime_error( "cudaGraphicsMapResources failed" );
-  }
-}
-
-void PixelBufferObject::unbindCudaResource()
-{
-  cudaError_t err = cudaSuccess;
-  err = cudaGraphicsMapResources( 1, &mCudaResource );
-  if ( err != cudaSuccess )
-  {
-    throw std::runtime_error( "cudaGraphicsMapResources failed" );
-  }
-}

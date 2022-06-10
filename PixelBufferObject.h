@@ -28,9 +28,6 @@ public:
   void unmapCudaResource();
   uint8_t* getCudaMappedPointer();
 
-  void bindCudaResource();
-  void unbindCudaResource();
-
 private:
   uint32_t mPboId = 0;
   cudaGraphicsResource_t mCudaResource = 0;
