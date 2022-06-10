@@ -17,6 +17,7 @@ private:
   void OnStopButton( wxCommandEvent& event );
   void OnResetButton( wxCommandEvent& event );
   void OnColorButton( wxCommandEvent& event );
+  void OnPatternComboBox( wxCommandEvent& event );
 
 private:
   class StepTimer : public wxTimer
@@ -30,6 +31,7 @@ private:
 
   GLCanvas* mGLCanvas;
   wxButton* mColorButton;
+  wxComboBox* mPatternComboBox;
   wxTextCtrl* mLogTextBox;
   StepTimer mStepTimer;
   uint32_t mDeltaTime;

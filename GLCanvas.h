@@ -33,6 +33,9 @@ public:
 
   void SetDrawColor( const math::uvec3& color );
   const math::uvec3& GetDrawColor() const;
+  void SetCurrentPattern( const uint32_t idx );
+  uint32_t GetPatternCount() const;
+  const Pattern& GetPattern( const uint32_t idx ) const;
 
   void Step();
   void Reset();

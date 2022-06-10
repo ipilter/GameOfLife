@@ -86,23 +86,23 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
 
     mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 1.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 1, 1, std::vector<bool> {
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
                                                                      1 } ) ) );
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 3, 3, std::vector<bool> {
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider",3, 3, std::vector<bool> {
                                                                      0, 1, 0,
                                                                      0, 0, 1,
                                                                      1, 1, 1 } ) ) );
 
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 5, 5, std::vector<bool> { // valid?
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Big Glider",5, 5, std::vector<bool> {
                                                                      0, 1, 1, 1, 1,
                                                                      1, 0, 0, 0, 1,
                                                                      0, 0, 0, 0, 1,
                                                                      1, 0, 0, 1, 0,
                                                                      0, 1, 0, 0, 0 } ) ) );
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 36, 9, std::vector<bool> {
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
@@ -112,7 +112,6 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
-    mDrawPatternIdx = 0;
   }
   catch ( const std::exception& e )
   {
@@ -146,6 +145,21 @@ void GLCanvas::SetDrawColor( const math::uvec3& color )
 const math::uvec3& GLCanvas::GetDrawColor() const
 {
   return mDrawColor;
+}
+
+void GLCanvas::SetCurrentPattern( const uint32_t idx )
+{
+  mDrawPatternIdx = idx;
+}
+
+uint32_t GLCanvas::GetPatternCount() const
+{
+  return mDrawPatterns.size();
+}
+
+const Pattern& GLCanvas::GetPattern( const uint32_t idx ) const
+{
+  return *mDrawPatterns[idx];
 }
 
 void GLCanvas::InitializeGLEW()
@@ -286,12 +300,12 @@ void GLCanvas::CreateTexture()
   // allocate PBO pixels
   mPBOs[mBackBufferIdx]->bindPbo();
   mPBOs[mBackBufferIdx]->allocate( byteCount );
+  mPBOs[mBackBufferIdx]->registerCudaResource(); // TODO check this
   mPBOs[mBackBufferIdx]->unbindPbo();
-  mPBOs[mBackBufferIdx]->registerCudaResource(); // ? why here ?
 
   mPBOs[mFrontBufferIdx]->bindPbo();
   mPBOs[mFrontBufferIdx]->allocate( byteCount );
-  mPBOs[mFrontBufferIdx]->registerCudaResource(); // ? why here ?
+  mPBOs[mFrontBufferIdx]->registerCudaResource(); // TODO check this
 
   // init PBO data with zero
   {
