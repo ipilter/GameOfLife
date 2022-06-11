@@ -7,7 +7,7 @@
 #include "Timer.h"
 #include "Util.h"
 
-MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const uint32_t exponent, const uint32_t deltaTime )
+MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const uint32_t exponent )
   : wxFrame( parent, wxID_ANY, title, pos, size )
   , mGLCanvas( nullptr )
   , mColorButton( nullptr )
@@ -36,11 +36,11 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     mPatternComboBox = new wxComboBox( controlPanel, wxID_ANY );
     mPatternComboBox->Bind( wxEVT_COMBOBOX_CLOSEUP, &MainFrame::OnPatternComboBox, this );
     
-    mDeltaTimeSlider = new wxSlider( controlPanel, wxID_ANY, 30, 5, 100 );
+    mDeltaTimeSlider = new wxSlider( controlPanel, wxID_ANY, 10, 1, 100 );
     mDeltaTimeSlider->Bind( wxEVT_SLIDER, &MainFrame::OnSlider, this );
 
     auto percentage = mDeltaTimeSlider->GetValue() / 100.0f;
-    mStepDeltaTime = (500u - 0u) * percentage; // percentage of min max milliseconds
+    mStepDeltaTime = (500u - 1u) * percentage; // percentage of min max milliseconds
 
     resetBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnResetButton, this );
     startBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnStartButton, this );

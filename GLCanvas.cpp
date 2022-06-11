@@ -117,7 +117,7 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
 
-  mDrawPatterns.push_back( std::move( std::make_unique<RandomPattern>( "Random", 200, 200 ) ) );
+  mDrawPatterns.push_back( std::move( std::make_unique<RandomPattern>( "Random", std::ceil(mTextures.front()->width() / 4.0f), std::ceil(mTextures.front()->height() / 4.0f) ) ) );
 }
 
 GLCanvas::~GLCanvas()
@@ -358,13 +358,15 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     // update pixels in front PBO
     mPBOs[mFrontBufferIdx]->bindPbo();
     uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
+    const int32_t ox = pixel.x - ( pattern->width() / 2.0f ) + 0.5f;
+    const int32_t oy = pixel.y - ( pattern->height() / 2.0f ) + 0.5f;
     for ( uint32_t y = 0; y < pattern->height(); ++y )
     {
       for ( uint32_t x = 0; x < pattern->width(); ++x )
       {
-        const uint32_t rx = pixel.x + x;
-        const uint32_t ry = pixel.y + y;
-        if ( rx >=  mTextures.front()->width() || ry >=  mTextures.front()->height() )
+        const int32_t rx = ox + x;
+        const int32_t ry = oy + y;
+        if ( rx < 0 || rx >=  static_cast<int32_t>(mTextures.front()->width()) || ry < 0 || ry >=  static_cast<int32_t>(mTextures.front()->height()) )
         {
           continue;
         }
@@ -382,7 +384,7 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
 
     // update texture region from front PBO
     mTextures.front()->bind();
-    mTextures.front()->updateFromPBO( pixel.x, pixel.y, pattern->width(), pattern->height() );
+    mTextures.front()->updateFromPBO( ox, oy, pattern->width(), pattern->height() );
     mTextures.front()->unbind();
     mPBOs[mFrontBufferIdx]->unbindPbo();
 
