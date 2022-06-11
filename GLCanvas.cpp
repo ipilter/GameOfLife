@@ -3,8 +3,9 @@
 #include <algorithm>
 
 #include "timer.h"
-#include "GLCanvas.h"
 #include "MainFrame.h"
+#include "GLCanvas.h"
+
 #include "Util.h"
 #include "Logger.h"
 #include "kernel.cuh"
@@ -38,86 +39,85 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
   Bind( wxEVT_LEAVE_WINDOW, &GLCanvas::OnMouseLeave, this );
   Bind( wxEVT_MOUSEWHEEL, &GLCanvas::OnMouseWheel, this );
 
-  try
+  SetCurrent( *mContext );
+  InitializeGLEW();
+
+  cudaError_t error_test = cudaSuccess;
+
+  int32_t gpuCount = 0;
+  error_test = cudaGetDeviceCount( &gpuCount );
+  if ( error_test != cudaSuccess )
   {
-    SetCurrent( *mContext );
-    InitializeGLEW();
-
-    cudaError_t error_test = cudaSuccess;
-
-    int32_t gpuCount = 0;
-    error_test = cudaGetDeviceCount( &gpuCount );
-    if ( error_test != cudaSuccess )
-    {
-      dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( "cudaGetDeviceCount failed" );
-      return;
-    }
-
-    cudaDeviceProp prop = { 0 };
-    int32_t gpuId = 0;
-    error_test = cudaGetDeviceProperties( &prop, gpuId );
-    if ( error_test != cudaSuccess )
-    {
-      dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( "cudaGetDeviceProperties failed" );
-      return;
-    }
-
-    error_test = cudaGLSetGLDevice( gpuId );
-    if ( error_test != cudaSuccess )
-    {
-      dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( "cudaGLSetGLDevice failed" );
-      return;
-    }
-  }
-  catch ( const std::exception& e )
-  {
-    logger::Logger::instance() << "ERROR: " << e.what() << "\n";
+    throw std::runtime_error( "cudaGetDeviceCount failed" );
   }
 
-  try
+  cudaDeviceProp prop = { 0 };
+  int32_t gpuId = 0;
+  error_test = cudaGetDeviceProperties( &prop, gpuId );
+  if ( error_test != cudaSuccess )
   {
-    // create PBO TODO: multiple for double/triple buffering
-    mPBOs.push_back( std::make_unique<PixelBufferObject>() );
-
-    CreateGeometry();
-    CreateShaderProgram();
-    CreateTexture();
-
-    mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 1.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 3, 3, std::vector<bool> {
-                                                                     0, 1, 0,
-                                                                     0, 0, 1,
-                                                                     1, 1, 1 } ) ) );
-
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 5, 5, std::vector<bool> { // valid?
-                                                                     0, 1, 1, 1, 1,
-                                                                     1, 0, 0, 0, 1,
-                                                                     0, 0, 0, 0, 1,
-                                                                     1, 0, 0, 1, 0,
-                                                                     0, 1, 0, 0, 0 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( 36, 9, std::vector<bool> {
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-                                                                     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
-  }
-  catch ( const std::exception& e )
-  {
-    logger::Logger::instance() << "ERROR: " << e.what() << "\n";
+    throw std::runtime_error( "cudaGetDeviceProperties failed" );
   }
 
-  std::stringstream ss;
-  ss << "GLCanvas window size: " << math::vec2( GetSize().GetWidth(), GetSize().GetHeight() );
-  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  logger::Logger::instance() << "GLCanvas window size: " << math::vec2( GetSize().GetWidth(), GetSize().GetHeight() ) << "\n";
+  error_test = cudaGLSetGLDevice( gpuId );
+  if ( error_test != cudaSuccess )
+  {
+    throw std::runtime_error( "cudaGLSetGLDevice failed" );
+  }
+
+  // create PBOs
+  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mFrontBufferIdx = 0;
+  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mBackBufferIdx = 1;
+
+  // stuff
+  CreateGeometry();
+  CreateShaderProgram();
+  CreateTexture();
+
+  // view
+  mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 5.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
+
+  // patterns
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
+                                                                    1 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
+                                                                    0, 1, 0,
+                                                                    0, 0, 1,
+                                                                    1, 1, 1 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
+                                                                    0, 0, 1, 1, 0,
+                                                                    1, 1, 0, 1, 1,
+                                                                    1, 1, 1, 1, 0,
+                                                                    0, 1, 1, 0, 0 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Middleweight Spaceship", 6, 4, std::vector<bool> {
+                                                                    0, 0, 0, 1, 1, 0,
+                                                                    1, 1, 1, 0, 1, 1,
+                                                                    1, 1, 1, 1, 1, 0,
+                                                                    0, 1, 1, 1, 0, 0 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Heavyweight Spaceship", 7, 4, std::vector<bool> {
+                                                                    0, 0, 0, 0, 1, 1, 0,
+                                                                    1, 1, 1, 1, 0, 1, 1,
+                                                                    1, 1, 1, 1, 1, 1, 0,
+                                                                    0, 1, 1, 1, 1, 0, 0 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+                                                                    1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<RandomPattern>( "Random", std::ceil(mTextures.front()->width() / 4.0f), std::ceil(mTextures.front()->height() / 4.0f) ) ) );
 }
 
 GLCanvas::~GLCanvas()
@@ -141,6 +141,21 @@ void GLCanvas::SetDrawColor( const math::uvec3& color )
 const math::uvec3& GLCanvas::GetDrawColor() const
 {
   return mDrawColor;
+}
+
+void GLCanvas::SetCurrentPattern( const uint32_t idx )
+{
+  mDrawPatternIdx = idx;
+}
+
+uint32_t GLCanvas::GetPatternCount() const
+{
+  return mDrawPatterns.size();
+}
+
+const Pattern& GLCanvas::GetPattern( const uint32_t idx ) const
+{
+  return *mDrawPatterns[idx];
 }
 
 void GLCanvas::InitializeGLEW()
@@ -279,14 +294,20 @@ void GLCanvas::CreateTexture()
   const auto byteCount = pixelCount * 4ull;
 
   // allocate PBO pixels
-  mPBOs.front()->bindPbo();
-  mPBOs.front()->allocate( byteCount );
+  mPBOs[mBackBufferIdx]->bindPbo();
+  mPBOs[mBackBufferIdx]->allocate( byteCount );
+  mPBOs[mBackBufferIdx]->registerCudaResource(); // TODO check this
+  mPBOs[mBackBufferIdx]->unbindPbo();
+
+  mPBOs[mFrontBufferIdx]->bindPbo();
+  mPBOs[mFrontBufferIdx]->allocate( byteCount );
+  mPBOs[mFrontBufferIdx]->registerCudaResource(); // TODO check this
 
   // init PBO data with zero
   {
-    GLubyte* pixelBuffer = mPBOs.front()->mapPboBuffer();
+    GLubyte* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
     std::fill( pixelBuffer, pixelBuffer + byteCount, 0 );
-    mPBOs.front()->unmapPboBuffer();
+    mPBOs[mFrontBufferIdx]->unmapPboBuffer();
   }
 
   // bind texture
@@ -294,13 +315,12 @@ void GLCanvas::CreateTexture()
 
   // create texture from PBO pixels
   mTextures.front()->createFromPBO();
-  mPBOs.front()->registerCudaResource();
 
   // unbind texture
   mTextures.front()->unbind();
 
   // unbind PBO
-  mPBOs.front()->unbindPbo();
+  mPBOs[mFrontBufferIdx]->unbindPbo();
 
   std::stringstream ss;
   ss << " Texture with dimensions " << mTextures.front()->width() << "x" << mTextures.front()->height() << " created";
@@ -333,16 +353,25 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
 {
   try
   {
-    const auto& pattern = mDrawPatterns[1];
+    const auto& pattern = mDrawPatterns[mDrawPatternIdx];
 
-    // update pixels in PBO
-    mPBOs.front()->bindPbo();
-    GLubyte* pixelBuffer = mPBOs.front()->mapPboBuffer();
+    // update pixels in front PBO
+    mPBOs[mFrontBufferIdx]->bindPbo();
+    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
+    const int32_t ox = pixel.x - ( pattern->width() / 2.0f ) + 0.5f;
+    const int32_t oy = pixel.y - ( pattern->height() / 2.0f ) + 0.5f;
     for ( uint32_t y = 0; y < pattern->height(); ++y )
     {
       for ( uint32_t x = 0; x < pattern->width(); ++x )
       {
-        const uint64_t offset = ( pixel.x + x ) * 4ull + ( pixel.y + y ) * 4ull * mTextures.front()->width();
+        const int32_t rx = ox + x;
+        const int32_t ry = oy + y;
+        if ( rx < 0 || rx >=  static_cast<int32_t>(mTextures.front()->width()) || ry < 0 || ry >=  static_cast<int32_t>(mTextures.front()->height()) )
+        {
+          continue;
+        }
+
+        const uint64_t offset = rx * 4ull + ry * 4ull * mTextures.front()->width();
         if ( pattern->at( x, y ) )
         {
           pixelBuffer[offset + 0] = mDrawColor.x;
@@ -351,15 +380,13 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
         }
       }
     }
-    mPBOs.front()->unmapPboBuffer();
+    mPBOs[mFrontBufferIdx]->unmapPboBuffer();
 
-    // update texture region from PBO
+    // update texture region from front PBO
     mTextures.front()->bind();
-    mTextures.front()->updateFromPBO( pixel.x, pixel.y, pattern->width(), pattern->height() );
+    mTextures.front()->updateFromPBO( ox, oy, pattern->width(), pattern->height() );
     mTextures.front()->unbind();
-
-    // done
-    mPBOs.front()->unbindPbo();
+    mPBOs[mFrontBufferIdx]->unbindPbo();
 
     glFlush();
   }
@@ -371,70 +398,43 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
   }
 }
 
-void GLCanvas::Step()
-{
-  Timer t;
-  t.start();
-
-  try
-  {
-    mPBOs.front()->mapCudaResource();
-    uint8_t* mappedPtr = mPBOs.front()->getCudaMappedPointer();
-    RunStepKernel( mappedPtr, mTextures.front()->width(), mTextures.front()->height() );
-    mPBOs.front()->unmapCudaResource();
-
-    mPBOs.front()->bindPbo();
-
-    mTextures.front()->bind();
-    mTextures.front()->updateFromPBO();
-    mTextures.front()->unbind();
-    mPBOs.front()->unbindPbo();
-
-    Refresh();
-  }
-  catch ( const std::exception& e )
-  {
-    std::stringstream ss;
-    ss << "Step error: " << e.what();
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  }
-  catch ( ... )
-  {
-    std::stringstream ss;
-    ss << "unknown Step error: ";
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  }
-
-  t.stop();
-  std::stringstream ss;
-  ss << "Step " << std::fixed << std::setprecision( 4 ) << t.ms() << " ms";
-  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-}
-
 void GLCanvas::Reset()
 {
-  try
-  {
-    // map cuda resource: front pbo
-    mPBOs.front()->mapCudaResource();
-    uint8_t* mappedPtr = mPBOs.front()->getCudaMappedPointer();
-    RunFillKernel( mappedPtr, 0, mTextures.front()->width(), mTextures.front()->height() );
-    mPBOs.front()->unmapCudaResource();
+  // reset pixels in the front buffer
+  mPBOs[mFrontBufferIdx]->mapCudaResource();
+  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+  RunFillKernel( mappedPtr, 0, mTextures.front()->width(), mTextures.front()->height() );
+  mPBOs[mFrontBufferIdx]->unmapCudaResource();
 
-    mPBOs.front()->bindPbo();
-    mTextures.front()->bind();
-    mTextures.front()->updateFromPBO();
-    mTextures.front()->bind();
-    mPBOs.front()->unbindPbo();
+  // update texture from the front buffer
+  mPBOs[mFrontBufferIdx]->bindPbo();
+  mTextures.front()->bind();
+  mTextures.front()->updateFromPBO();
+  mTextures.front()->bind();
+  mPBOs[mFrontBufferIdx]->unbindPbo();
 
-    Refresh();
-  }
-  catch ( const std::exception& e )
-  {
-    std::stringstream ss;
-    ss << "Reset error: " << e.what();
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  }
+  Refresh();
+}
+
+void GLCanvas::Step()
+{
+  mPBOs[mFrontBufferIdx]->mapCudaResource();
+  mPBOs[mBackBufferIdx]->mapCudaResource();
+  uint8_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+  uint8_t* mappedBackPtr = mPBOs[mBackBufferIdx]->getCudaMappedPointer();
+  RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->width(), mTextures.front()->height() );
+  mPBOs[mFrontBufferIdx]->unmapCudaResource();
+  mPBOs[mBackBufferIdx]->unmapCudaResource();
+
+  std::swap( mFrontBufferIdx, mBackBufferIdx );
+
+  mPBOs[mFrontBufferIdx]->bindPbo();
+  mTextures.front()->bind();
+  mTextures.front()->updateFromPBO();
+  mTextures.front()->unbind();
+  mPBOs[mFrontBufferIdx]->unbindPbo();
+
+  Refresh();
 }
 
 void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )

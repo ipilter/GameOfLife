@@ -5,7 +5,7 @@
 #include <gl/glew.h> // must be before any OpenGL related header
 #include "WxMain.h"
 #include <wx/glcanvas.h>
-
+#include <wx/overlay.h>
 #include "Math.h"
 #include "Pattern.h"
 #include "Texture.h"
@@ -33,6 +33,9 @@ public:
 
   void SetDrawColor( const math::uvec3& color );
   const math::uvec3& GetDrawColor() const;
+  void SetCurrentPattern( const uint32_t idx );
+  uint32_t GetPatternCount() const;
+  const Pattern& GetPattern( const uint32_t idx ) const;
 
   void Step();
   void Reset();
@@ -73,8 +76,10 @@ private:
   // textures
   std::vector<Texture::Ptr> mTextures;
 
-  // pixel buffer list
+  // pixel buffers
   std::vector<PixelBufferObject::Ptr> mPBOs;
+  uint32_t mFrontBufferIdx = 0;
+  uint32_t mBackBufferIdx = 0;
 
   // shader
   uint32_t mVertexShader = 0;
@@ -91,6 +96,7 @@ private:
   bool mDrawingActive = false;
   math::uvec3 mDrawColor = math::uvec3( 255, 255, 255 );
 
-  // pattern selection
+  // patterns
   std::vector<Pattern::Ptr> mDrawPatterns;
+  size_t mDrawPatternIdx = 0;
 };
