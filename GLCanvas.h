@@ -5,7 +5,7 @@
 #include <gl/glew.h> // must be before any OpenGL related header
 #include "WxMain.h"
 #include <wx/glcanvas.h>
-
+#include <wx/overlay.h>
 #include "Math.h"
 #include "Pattern.h"
 #include "Texture.h"

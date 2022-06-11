@@ -7,6 +7,7 @@
 
 class Pattern
 {
+  using Bits = std::vector<bool>;
 public:
   using Ptr = std::unique_ptr<Pattern>;
 
@@ -18,9 +19,18 @@ public:
   uint32_t width() const;
   uint32_t height() const;
 
+protected:
+  Bits& bits();
+
 private:
   std::string mName;
   uint32_t mWidth;
   uint32_t mHeight;
-  std::vector<bool> mBits;
+  Bits mBits;
+};
+
+class RandomPattern : public Pattern
+{
+  public:
+    RandomPattern( const std::string& name, const uint32_t w, const uint32_t h );
 };

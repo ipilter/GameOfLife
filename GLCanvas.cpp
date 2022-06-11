@@ -3,8 +3,9 @@
 #include <algorithm>
 
 #include "timer.h"
-#include "GLCanvas.h"
 #include "MainFrame.h"
+#include "GLCanvas.h"
+
 #include "Util.h"
 #include "Logger.h"
 #include "kernel.cuh"
@@ -38,90 +39,85 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
   Bind( wxEVT_LEAVE_WINDOW, &GLCanvas::OnMouseLeave, this );
   Bind( wxEVT_MOUSEWHEEL, &GLCanvas::OnMouseWheel, this );
 
-  try
+  SetCurrent( *mContext );
+  InitializeGLEW();
+
+  cudaError_t error_test = cudaSuccess;
+
+  int32_t gpuCount = 0;
+  error_test = cudaGetDeviceCount( &gpuCount );
+  if ( error_test != cudaSuccess )
   {
-    SetCurrent( *mContext );
-    InitializeGLEW();
-
-    cudaError_t error_test = cudaSuccess;
-
-    int32_t gpuCount = 0;
-    error_test = cudaGetDeviceCount( &gpuCount );
-    if ( error_test != cudaSuccess )
-    {
-      throw std::runtime_error( "cudaGetDeviceCount failed" );
-    }
-
-    cudaDeviceProp prop = { 0 };
-    int32_t gpuId = 0;
-    error_test = cudaGetDeviceProperties( &prop, gpuId );
-    if ( error_test != cudaSuccess )
-    {
-      throw std::runtime_error( "cudaGetDeviceProperties failed" );
-    }
-
-    error_test = cudaGLSetGLDevice( gpuId );
-    if ( error_test != cudaSuccess )
-    {
-      throw std::runtime_error( "cudaGLSetGLDevice failed" );
-    }
-  }
-  catch ( const std::exception& e )
-  {
-    logger::Logger::instance() << "ERROR: " << e.what() << "\n";
+    throw std::runtime_error( "cudaGetDeviceCount failed" );
   }
 
-  try
+  cudaDeviceProp prop = { 0 };
+  int32_t gpuId = 0;
+  error_test = cudaGetDeviceProperties( &prop, gpuId );
+  if ( error_test != cudaSuccess )
   {
-    // create PBOs
-    mPBOs.push_back( std::make_unique<PixelBufferObject>() );
-    mPBOs.push_back( std::make_unique<PixelBufferObject>() );
-
-    mFrontBufferIdx = 0;
-    mBackBufferIdx = 1;
-
-    CreateGeometry();
-    CreateShaderProgram();
-    CreateTexture();
-
-    mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 1.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
-                                                                     1 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider",3, 3, std::vector<bool> {
-                                                                     0, 1, 0,
-                                                                     0, 0, 1,
-                                                                     1, 1, 1 } ) ) );
-
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Big Glider",5, 5, std::vector<bool> {
-                                                                     0, 1, 1, 1, 1,
-                                                                     1, 0, 0, 0, 1,
-                                                                     0, 0, 0, 0, 1,
-                                                                     1, 0, 0, 1, 0,
-                                                                     0, 1, 0, 0, 0 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-                                                                     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
-  }
-  catch ( const std::exception& e )
-  {
-    logger::Logger::instance() << "ERROR: " << e.what() << "\n";
+    throw std::runtime_error( "cudaGetDeviceProperties failed" );
   }
 
-  std::stringstream ss;
-  ss << "GLCanvas window size: " << math::vec2( GetSize().GetWidth(), GetSize().GetHeight() );
-  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  logger::Logger::instance() << "GLCanvas window size: " << math::vec2( GetSize().GetWidth(), GetSize().GetHeight() ) << "\n";
+  error_test = cudaGLSetGLDevice( gpuId );
+  if ( error_test != cudaSuccess )
+  {
+    throw std::runtime_error( "cudaGLSetGLDevice failed" );
+  }
+
+  // create PBOs
+  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mFrontBufferIdx = 0;
+  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mBackBufferIdx = 1;
+
+  // stuff
+  CreateGeometry();
+  CreateShaderProgram();
+  CreateTexture();
+
+  // view
+  mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 5.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
+
+  // patterns
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
+                                                                    1 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
+                                                                    0, 1, 0,
+                                                                    0, 0, 1,
+                                                                    1, 1, 1 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
+                                                                    0, 0, 1, 1, 0,
+                                                                    1, 1, 0, 1, 1,
+                                                                    1, 1, 1, 1, 0,
+                                                                    0, 1, 1, 0, 0 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Middleweight Spaceship", 6, 4, std::vector<bool> {
+                                                                    0, 0, 0, 1, 1, 0,
+                                                                    1, 1, 1, 0, 1, 1,
+                                                                    1, 1, 1, 1, 1, 0,
+                                                                    0, 1, 1, 1, 0, 0 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Heavyweight Spaceship", 7, 4, std::vector<bool> {
+                                                                    0, 0, 0, 0, 1, 1, 0,
+                                                                    1, 1, 1, 1, 0, 1, 1,
+                                                                    1, 1, 1, 1, 1, 1, 0,
+                                                                    0, 1, 1, 1, 1, 0, 0 } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+                                                                    1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
+
+  mDrawPatterns.push_back( std::move( std::make_unique<RandomPattern>( "Random", 200, 200 ) ) );
 }
 
 GLCanvas::~GLCanvas()
@@ -402,73 +398,41 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
 
 void GLCanvas::Reset()
 {
-  try
-  {
-    // reset pixels in the front buffer
-    mPBOs[mFrontBufferIdx]->mapCudaResource();
-    uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-    RunFillKernel( mappedPtr, 0, mTextures.front()->width(), mTextures.front()->height() );
-    mPBOs[mFrontBufferIdx]->unmapCudaResource();
+  // reset pixels in the front buffer
+  mPBOs[mFrontBufferIdx]->mapCudaResource();
+  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+  RunFillKernel( mappedPtr, 0, mTextures.front()->width(), mTextures.front()->height() );
+  mPBOs[mFrontBufferIdx]->unmapCudaResource();
 
-    // update texture from the front buffer
-    mPBOs[mFrontBufferIdx]->bindPbo();
-    mTextures.front()->bind();
-    mTextures.front()->updateFromPBO();
-    mTextures.front()->bind();
-    mPBOs[mFrontBufferIdx]->unbindPbo();
+  // update texture from the front buffer
+  mPBOs[mFrontBufferIdx]->bindPbo();
+  mTextures.front()->bind();
+  mTextures.front()->updateFromPBO();
+  mTextures.front()->bind();
+  mPBOs[mFrontBufferIdx]->unbindPbo();
 
-    Refresh();
-  }
-  catch ( const std::exception& e )
-  {
-    std::stringstream ss;
-    ss << "Reset error: " << e.what();
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  }
+  Refresh();
 }
 
 void GLCanvas::Step()
 {
-  Timer t;
-  t.start();
+  mPBOs[mFrontBufferIdx]->mapCudaResource();
+  mPBOs[mBackBufferIdx]->mapCudaResource();
+  uint8_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+  uint8_t* mappedBackPtr = mPBOs[mBackBufferIdx]->getCudaMappedPointer();
+  RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->width(), mTextures.front()->height() );
+  mPBOs[mFrontBufferIdx]->unmapCudaResource();
+  mPBOs[mBackBufferIdx]->unmapCudaResource();
 
-  try
-  {
-    mPBOs[mFrontBufferIdx]->mapCudaResource();
-    mPBOs[mBackBufferIdx]->mapCudaResource();
-    uint8_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-    uint8_t* mappedBackPtr = mPBOs[mBackBufferIdx]->getCudaMappedPointer();
-    RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->width(), mTextures.front()->height() );
-    mPBOs[mFrontBufferIdx]->unmapCudaResource();
-    mPBOs[mBackBufferIdx]->unmapCudaResource();
+  std::swap( mFrontBufferIdx, mBackBufferIdx );
 
-    std::swap( mFrontBufferIdx, mBackBufferIdx );
+  mPBOs[mFrontBufferIdx]->bindPbo();
+  mTextures.front()->bind();
+  mTextures.front()->updateFromPBO();
+  mTextures.front()->unbind();
+  mPBOs[mFrontBufferIdx]->unbindPbo();
 
-    mPBOs[mFrontBufferIdx]->bindPbo();
-    mTextures.front()->bind();
-    mTextures.front()->updateFromPBO();
-    mTextures.front()->unbind();
-    mPBOs[mFrontBufferIdx]->unbindPbo();
-
-    Refresh();
-  }
-  catch ( const std::exception& e )
-  {
-    std::stringstream ss;
-    ss << "Step error: " << e.what();
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  }
-  catch ( ... )
-  {
-    std::stringstream ss;
-    ss << "unknown Step error: ";
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  }
-
-  t.stop();
-  std::stringstream ss;
-  ss << "Step " << std::fixed << std::setprecision( 4 ) << t.ms() << " ms";
-  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
+  Refresh();
 }
 
 void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
