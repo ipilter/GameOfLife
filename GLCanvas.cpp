@@ -134,6 +134,43 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
                                                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Big Ship", 34, 35, std::vector<bool> {
+                                                                      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,1,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      1,0,0,1,1,1,1,1,1,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,1,0,0,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      1,0,0,1,0,1,0,0,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,1,0,0,0,1,1,1,1,1,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,1,1,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,1,1,0,0,0,1,1,1,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,1,1,0,0,0,0,0,1,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0,0,1,0,0,1,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,0,0,0,0,1,1,0,0,1,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,0,1,1,0,1,0,0,1,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
+                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 } ) ) );
   }
 }
 
@@ -192,6 +229,13 @@ uint32_t GLCanvas::GetPatternCount() const
 const Pattern& GLCanvas::GetPattern( const uint32_t idx ) const
 {
   return *mDrawPatterns[idx];
+}
+
+void GLCanvas::SetDrawPixelGrid( const bool drawPixelGrid )
+{
+  mDrawPixelGrid = drawPixelGrid;
+
+  Refresh();
 }
 
 void GLCanvas::InitializeGLEW()
@@ -323,6 +367,7 @@ void GLCanvas::CreateTexture()
     logger::Logger::instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
 
     mTextures.push_back( std::make_unique<Texture>( glm::min( size, static_cast<uint32_t>( maxTextureSize ) ), glm::min( size, static_cast<uint32_t>( maxTextureSize ) ) ) );
+    mTextures.push_back( std::make_unique<Texture>( glm::min( size, static_cast<uint32_t>( maxTextureSize ) ), glm::min( size, static_cast<uint32_t>( maxTextureSize ) ) ) );
     logger::Logger::instance() << "Creating texture with size " << mTextures.front()->width() << "x" << mTextures.front()->height() << "\n";
   }
 
@@ -341,7 +386,7 @@ void GLCanvas::CreateTexture()
 
   // init PBO data with zero
   {
-    GLubyte* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
+    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
     std::fill( pixelBuffer, pixelBuffer + byteCount, 0 );
     mPBOs[mFrontBufferIdx]->unmapPboBuffer();
   }
@@ -361,6 +406,41 @@ void GLCanvas::CreateTexture()
   std::stringstream ss;
   ss << " Texture with dimensions " << mTextures.front()->width() << "x" << mTextures.front()->height() << " created";
   dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
+
+  // pixel grid pattern
+  {
+    uint8_t* pixelBuffer = new uint8_t[byteCount];
+    bool on = true;
+    for ( uint32_t j = 0; j < mTextures.back()->height(); ++j )
+    {
+      for ( uint32_t i = 0; i < mTextures.back()->width(); ++i )
+      {
+        auto color = 0;
+        if ( on )
+        {
+          if ( (i % 10 == 0) || (j % 10 == 0) )
+          {
+            color = 30;
+          }
+          else
+          {
+            color = 20;
+          }
+        }
+
+        const auto offset = i * 4ull + j * 4ull * mTextures.back()->width();
+        pixelBuffer[offset+0] = color;
+        pixelBuffer[offset+1] = color;
+        pixelBuffer[offset+2] = color;
+        on = !on;
+      }
+      on = !on;
+    }
+
+    mTextures.back()->bind();
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mTextures.back()->width(), mTextures.back()->height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer );
+    mTextures.back()->unbind();
+  }
 }
 
 math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
@@ -518,14 +598,21 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
   glUseProgram( mShaderProgram );
 
   const math::mat4 vpMatrix = mProjectionMatrix * mViewMatrix;
-  const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) );
+  const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer
   glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
 
   mTextures.front()->bindTextureUnit( 0 );
+  mTextures.back()->bindTextureUnit( 1 );
+
+  glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // TODO do it nicer
+  glUniform1i( glGetUniformLocation( mShaderProgram, "checkerboardData" ), 1 ); // TODO do it nicer
+  glUniform1i( glGetUniformLocation( mShaderProgram, "isCheckerboard" ), mDrawPixelGrid ? 1 : 0 ); // TODO do it nicer
 
   glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );  // 6 = index count
 
   mTextures.front()->unbindTextureUnit();
+  mTextures.back()->unbindTextureUnit();
+
   glBindVertexArray( 0 );
   glUseProgram( 0 );
 

@@ -32,6 +32,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     auto* startBtn = new wxButton( controlPanel, wxID_ANY, "Start" );
     auto* stopBtn = new wxButton( controlPanel, wxID_ANY, "Stop" );
     auto* randomBtn = new wxButton( controlPanel, wxID_ANY, "Random" );
+    mPixelGridCheckBox = new wxCheckBox( controlPanel, wxID_ANY, "Pixel grid" );
     mPrimaryColorButton = new wxButton( controlPanel, wxID_ANY );
     mPrimaryColorButton->SetBackgroundColour( wxColor( mGLCanvas->GetPrimaryColor().x, mGLCanvas->GetPrimaryColor().y, mGLCanvas->GetPrimaryColor().z ) );
     
@@ -54,6 +55,9 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     mPrimaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnPrimaryColorButton, this );
     mSecondaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnSecondaryColorButton, this );
 
+    mPixelGridCheckBox->Bind( wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::OnPixelCheckBox, this ); 
+    mPixelGridCheckBox->SetForegroundColour( wxColor( 255, 255, 255 ) );
+
     auto* controlSizer = new wxBoxSizer( wxVERTICAL ); // TODO List of controls instead these
     controlSizer->Add( resetBtn, 0, wxEXPAND );
     controlSizer->Add( startBtn, 0, wxEXPAND );
@@ -63,6 +67,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     controlSizer->Add( mSecondaryColorButton, 0, wxEXPAND );
     controlSizer->Add( mPatternComboBox, 0, wxEXPAND );
     controlSizer->Add( mDeltaTimeSlider, 0, wxEXPAND );
+    controlSizer->Add( mPixelGridCheckBox, 0, wxEXPAND );
     controlPanel->SetSizer( controlSizer );
 
     auto* sizer = new wxBoxSizer( wxHORIZONTAL );
@@ -237,6 +242,11 @@ void MainFrame::OnSlider( wxCommandEvent& event )
   std::stringstream ss;
   ss << "slider: " << mStepDeltaTime;
   AddLogMessage( ss.str() );
+}
+
+void MainFrame::OnPixelCheckBox( wxCommandEvent& event )
+{
+  mGLCanvas->SetDrawPixelGrid( mPixelGridCheckBox->IsChecked() );
 }
 
 // StepTimer

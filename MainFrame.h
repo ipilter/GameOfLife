@@ -24,6 +24,7 @@ private:
   void OnSecondaryColorButton( wxCommandEvent& event );
   void OnPatternComboBox( wxCommandEvent& event );
   void OnSlider( wxCommandEvent& event );
+  void OnPixelCheckBox( wxCommandEvent& event );
 
 private:
   class StepTimer : public wxTimer // TODO maybe do inside GLCanvas or even deeper -> GOLEngine ?
@@ -42,6 +43,7 @@ private:
   wxComboBox* mPatternComboBox;
   wxSlider* mDeltaTimeSlider;
   wxTextCtrl* mLogTextBox;
+  wxCheckBox* mPixelGridCheckBox;
 
   bool mStepTimerRuning = false;
   bool mLogStepRuntime = false;

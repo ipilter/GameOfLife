@@ -39,6 +39,7 @@ public:
   void SetCurrentPattern( const uint32_t idx );
   uint32_t GetPatternCount() const;
   const Pattern& GetPattern( const uint32_t idx ) const;
+  void SetDrawPixelGrid( const bool drawPixelGrid );
 
   void Step();
   void Reset();
@@ -109,4 +110,5 @@ private:
   // patterns
   std::vector<Pattern::Ptr> mDrawPatterns;
   Pattern mDrawPattern;
+  bool mDrawPixelGrid = false;
 };
