@@ -76,6 +76,17 @@ inline void Write_t( std::ofstream& stream, const std::string& str )
   stream.write( str.c_str(), count );
 }
 
+template<>
+inline void Write_t( std::ofstream& stream, const std::vector<bool>& array )
+{
+  const size_t count( array.size() );
+  Write_t( stream, count );
+  for ( auto i( 0 ); i < count; ++i )
+  {
+    Write_t( stream, array[i] );
+  }
+}
+
 template<typename T>
 inline void Read_t( std::ifstream& stream, T& t )
 {
@@ -94,6 +105,24 @@ inline void Read_t( std::ifstream& stream, std::string& str )
 
   char dummy( 0 );
   Read_t( stream, dummy );
+}
+
+template<>
+inline void Read_t( std::ifstream& stream, std::vector<bool>& array )
+{
+  size_t count( 0 );
+  Read_t( stream, count );
+  array.resize( count, 0 );
+
+  for ( auto i( 0 ); i < count; ++i )
+  {
+    bool v = false;
+    Read_t( stream, v );
+    array[i] = v;
+  }
+
+  //char dummy( 0 );
+  //Read_t( stream, dummy );
 }
 
 }

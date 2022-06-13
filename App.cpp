@@ -33,6 +33,10 @@ void App::OnKey( wxKeyEvent& event )
   {
     Exit();
   }
+  else
+  {
+    event.Skip();
+  }
 }
 
 void App::OnInitCmdLine( wxCmdLineParser& parser )

@@ -19,7 +19,9 @@ private:
   void OnStartButton( wxCommandEvent& event );
   void OnStopButton( wxCommandEvent& event );
   void OnResetButton( wxCommandEvent& event );
-  void OnColorButton( wxCommandEvent& event );
+  void OnRandomButton( wxCommandEvent& event );
+  void OnPrimaryColorButton( wxCommandEvent& event );
+  void OnSecondaryColorButton( wxCommandEvent& event );
   void OnPatternComboBox( wxCommandEvent& event );
   void OnSlider( wxCommandEvent& event );
 
@@ -35,7 +37,8 @@ private:
   };
 
   GLCanvas* mGLCanvas;
-  wxButton* mColorButton;
+  wxButton* mPrimaryColorButton;
+  wxButton* mSecondaryColorButton;
   wxComboBox* mPatternComboBox;
   wxSlider* mDeltaTimeSlider;
   wxTextCtrl* mLogTextBox;

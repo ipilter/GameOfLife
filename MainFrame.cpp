@@ -10,7 +10,8 @@
 MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const uint32_t exponent )
   : wxFrame( parent, wxID_ANY, title, pos, size )
   , mGLCanvas( nullptr )
-  , mColorButton( nullptr )
+  , mPrimaryColorButton( nullptr )
+  , mSecondaryColorButton( nullptr )
   , mLogTextBox( nullptr )
 {
   try
@@ -30,9 +31,13 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     auto* resetBtn = new wxButton( controlPanel, wxID_ANY, "Reset" );
     auto* startBtn = new wxButton( controlPanel, wxID_ANY, "Start" );
     auto* stopBtn = new wxButton( controlPanel, wxID_ANY, "Stop" );
-    mColorButton = new wxButton( controlPanel, wxID_ANY );
-    mColorButton->SetBackgroundColour( wxColor( mGLCanvas->GetDrawColor().x, mGLCanvas->GetDrawColor().y, mGLCanvas->GetDrawColor().z ) );
+    auto* randomBtn = new wxButton( controlPanel, wxID_ANY, "Random" );
+    mPrimaryColorButton = new wxButton( controlPanel, wxID_ANY );
+    mPrimaryColorButton->SetBackgroundColour( wxColor( mGLCanvas->GetPrimaryColor().x, mGLCanvas->GetPrimaryColor().y, mGLCanvas->GetPrimaryColor().z ) );
     
+    mSecondaryColorButton = new wxButton( controlPanel, wxID_ANY );
+    mSecondaryColorButton->SetBackgroundColour( wxColor( mGLCanvas->GetSecondaryColor().x, mGLCanvas->GetSecondaryColor().y, mGLCanvas->GetSecondaryColor().z ) );
+
     mPatternComboBox = new wxComboBox( controlPanel, wxID_ANY );
     mPatternComboBox->Bind( wxEVT_COMBOBOX_CLOSEUP, &MainFrame::OnPatternComboBox, this );
     
@@ -45,13 +50,17 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     resetBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnResetButton, this );
     startBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnStartButton, this );
     stopBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnStopButton, this );
-    mColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnColorButton, this );
+    randomBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnRandomButton, this );
+    mPrimaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnPrimaryColorButton, this );
+    mSecondaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnSecondaryColorButton, this );
 
     auto* controlSizer = new wxBoxSizer( wxVERTICAL ); // TODO List of controls instead these
     controlSizer->Add( resetBtn, 0, wxEXPAND );
     controlSizer->Add( startBtn, 0, wxEXPAND );
     controlSizer->Add( stopBtn, 0, wxEXPAND );
-    controlSizer->Add( mColorButton, 0, wxEXPAND );
+    controlSizer->Add( randomBtn, 0, wxEXPAND );
+    controlSizer->Add( mPrimaryColorButton, 0, wxEXPAND );
+    controlSizer->Add( mSecondaryColorButton, 0, wxEXPAND );
     controlSizer->Add( mPatternComboBox, 0, wxEXPAND );
     controlSizer->Add( mDeltaTimeSlider, 0, wxEXPAND );
     controlPanel->SetSizer( controlSizer );
@@ -179,12 +188,34 @@ void MainFrame::OnResetButton(wxCommandEvent& /*event*/)
   AddLogMessage( "simulation reseted" );
 }
 
-void MainFrame::OnColorButton( wxCommandEvent& event )
+void MainFrame::OnRandomButton( wxCommandEvent& event )
 {
-  const auto color( wxGetColourFromUser( this, wxColor( mGLCanvas->GetDrawColor().x, mGLCanvas->GetDrawColor().y, mGLCanvas->GetDrawColor().z ) ) );
-  mColorButton->SetBackgroundColour( color );
+  try
+  {
+    mGLCanvas->Random();
+  }
+  catch ( const std::exception& e )
+  {
+    std::stringstream ss;
+    ss << "Random error: " << e.what();
+    AddLogMessage( ss.str() );
+  }
+}
 
-  mGLCanvas->SetDrawColor( math::uvec3( color.Red(), color.Green(), color.Blue() ) );
+void MainFrame::OnPrimaryColorButton( wxCommandEvent& event )
+{
+  const auto color( wxGetColourFromUser( this, wxColor( mGLCanvas->GetPrimaryColor().x, mGLCanvas->GetPrimaryColor().y, mGLCanvas->GetPrimaryColor().z ) ) );
+  mPrimaryColorButton->SetBackgroundColour( color );
+
+  mGLCanvas->SetPrimaryColor( math::uvec3( color.Red(), color.Green(), color.Blue() ) );
+}
+
+void MainFrame::OnSecondaryColorButton( wxCommandEvent& event )
+{
+  const auto color( wxGetColourFromUser( this, wxColor( mGLCanvas->GetSecondaryColor().x, mGLCanvas->GetSecondaryColor().y, mGLCanvas->GetSecondaryColor().z ) ) );
+  mSecondaryColorButton->SetBackgroundColour( color );
+
+  mGLCanvas->SetSecondaryColor( math::uvec3( color.Red(), color.Green(), color.Blue() ) );
 }
 
 void MainFrame::OnPatternComboBox( wxCommandEvent& /*event*/ )

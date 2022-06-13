@@ -31,14 +31,19 @@ public:
   GLCanvas& operator = ( const GLCanvas& ) = delete;
   GLCanvas& operator = ( GLCanvas&& ) = delete;
 
-  void SetDrawColor( const math::uvec3& color );
-  const math::uvec3& GetDrawColor() const;
+  void SetPrimaryColor( const math::uvec3& color );
+  const math::uvec3& GetPrimaryColor() const;
+  void SetSecondaryColor( const math::uvec3& color );
+  const math::uvec3& GetSecondaryColor() const;
+
   void SetCurrentPattern( const uint32_t idx );
   uint32_t GetPatternCount() const;
   const Pattern& GetPattern( const uint32_t idx ) const;
 
   void Step();
   void Reset();
+  void Random();
+  void RotatePattern();
 
 private:
   void InitializeGLEW();
@@ -56,10 +61,13 @@ private:
   void OnMouseMove( wxMouseEvent& event );
   void OnMouseRightDown( wxMouseEvent& event );
   void OnMouseRightUp( wxMouseEvent& event );
+  void OnMouseMiddleDown( wxMouseEvent& event );
+  void OnMouseMiddleUp( wxMouseEvent& event );
   void OnMouseLeftDown( wxMouseEvent& event );
   void OnMouseLeftUp( wxMouseEvent& event );
   void OnMouseLeave( wxMouseEvent& event );
   void OnMouseWheel( wxMouseEvent& event );
+  void OnKeyDown( wxKeyEvent& event );
 
   // opengl context
   std::unique_ptr<wxGLContext> mContext;
@@ -94,9 +102,11 @@ private:
   bool mPanningActive = false;
   math::vec2 mPreviousMousePosition = math::vec2( 0.0 );
   bool mDrawingActive = false;
-  math::uvec3 mDrawColor = math::uvec3( 255, 255, 255 );
+  math::uvec3 mPrimaryColor = math::uvec3( 255, 255, 255 );
+  math::uvec3 mSecondaryColor = math::uvec3( 0, 0, 0 );
+  math::uvec3 mCurrentDrawingColor = math::uvec3( 255, 255, 255 ); // TODO index in an array instead
 
   // patterns
   std::vector<Pattern::Ptr> mDrawPatterns;
-  size_t mDrawPatternIdx = 0;
+  Pattern mDrawPattern;
 };

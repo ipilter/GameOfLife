@@ -2,12 +2,16 @@
 
 #include "Pattern.h"
 #include "Math.h"
+#include "Util.h"
 
 Pattern::Pattern( const std::string& name, const uint32_t w, const uint32_t h, const std::vector<bool>& bits )
   : mName( name )
   , mWidth( w )
   , mHeight( h )
   , mBits( bits )
+{}
+
+Pattern::Pattern()
 {}
 
 bool Pattern::at( const uint32_t x, const uint32_t y ) const
@@ -35,19 +39,39 @@ Pattern::Bits& Pattern::bits()
   return mBits;
 }
 
-RandomPattern::RandomPattern( const std::string& name, const uint32_t w, const uint32_t h )
-  : Pattern( name, w, h, std::vector<bool>( w * h, 0) )
+void Pattern::write( std::ofstream& stream )
 {
-  size_t rw = w;
-  size_t rh = h;
+  util::Write_t( stream, mWidth );
+  util::Write_t( stream, mHeight );
+  util::Write_t( stream, mName );
+  util::Write_t( stream, mBits );
+}
 
-  std::vector<bool>& rp = bits();
-  for ( auto h = 0ull; h < rh; ++h )
+void Pattern::read( std::ifstream& stream )
+{
+  util::Read_t<uint32_t>( stream, mWidth );
+  util::Read_t<uint32_t>( stream, mHeight );
+  util::Read_t<>( stream, mName );
+  util::Read_t<>( stream, mBits );
+}
+
+void Pattern::rotate()
+{
+  Pattern old( *this );
+  mWidth = old.mHeight;
+  mHeight = old.mWidth;
+  mBits.resize( mWidth * mHeight );
+
+  for ( uint32_t j = 0; j < mHeight; ++j )
   {
-    for ( auto w = 0ull; w < rw; ++w )
+    for ( uint32_t i = 0; i < mWidth; ++i )
     {
-      auto r = math::random();
-      rp[w + rw * h] = r > 0.8f;
+      mBits[i + j * mWidth] = old.mBits[( old.mWidth - 1 - j ) + i * old.mWidth];
     }
   }
+}
+
+void Pattern::setName( const std::string& name )
+{
+  mName = name;
 }
