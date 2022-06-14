@@ -76,6 +76,7 @@ private:
   // parameters
   float mQuadSize;
   uint32_t mTextureSize;
+  uint32_t mTexturePatternSize;
 
   // mesh
   uint32_t mVbo = 0;

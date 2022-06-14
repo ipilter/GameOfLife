@@ -2,7 +2,7 @@
 
 #include "Texture.h"
 
-Texture::Texture( const uint32_t width, const uint32_t height )
+Texture::Texture( const uint32_t width, const uint32_t height, const int wrap )
   : mWidth( width )
   , mHeight( height )
 {
@@ -10,8 +10,8 @@ Texture::Texture( const uint32_t width, const uint32_t height )
   glBindTexture( GL_TEXTURE_2D, mId );
   glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
   glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-  glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP );
-  glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP );
+  glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap );
+  glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap );
   glBindTexture( GL_TEXTURE_2D, 0 );
 }
 

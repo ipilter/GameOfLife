@@ -77,6 +77,12 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   mBackBufferIdx = 1;
 
   // stuff
+  int32_t maxTextureSize = 0;
+  glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
+  logger::Logger::instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
+  mTextureSize = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) ); // nxn pixels
+  mTexturePatternSize = 10; // nxn pixels
+
   CreateGeometry();
   CreateShaderProgram();
   CreateTexture();
@@ -255,10 +261,11 @@ void GLCanvas::InitializeGLEW()
 
 void GLCanvas::CreateGeometry()
 {
-  const std::vector<float> points = { 0.0f,      0.0f,      0.0f, 1.0f // vtx bl
-                                     , mQuadSize, 0.0f,      1.0f, 1.0f // vtx br
-                                     , 0.0f,      mQuadSize, 0.0f, 0.0f // vtx tl
-                                     , mQuadSize, mQuadSize, 1.0f, 0.0f // vtx tr
+  const float pixelPatternTexelSize = mTextureSize / static_cast<float>( mTexturePatternSize );
+  const std::vector<float> points = { 0.0f,      0.0f,       0.0f, 1.0f, 0.0,                   pixelPatternTexelSize // vtx bl
+                                     , mQuadSize, 0.0f,      1.0f, 1.0f, pixelPatternTexelSize, pixelPatternTexelSize // vtx br
+                                     , 0.0f,      mQuadSize, 0.0f, 0.0f, 0.0,                   0.0 // vtx tl
+                                     , mQuadSize, mQuadSize, 1.0f, 0.0f, pixelPatternTexelSize, 0.0 // vtx tr
   };
 
   const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
@@ -275,14 +282,17 @@ void GLCanvas::CreateGeometry()
   glBindVertexArray( mVao );
   glEnableVertexAttribArray( 0 );
   glEnableVertexAttribArray( 1 );
+  glEnableVertexAttribArray( 2 );
   glBindBuffer( GL_ARRAY_BUFFER, mVbo );
   glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIbo );
 
-  uint32_t stride = 4 * sizeof( float );
+  uint32_t stride = 6 * sizeof( float );
   size_t vertexOffset = 0;
-  size_t texelOffset = 2 * sizeof( float );
+  size_t worldTexelOffset = 2 * sizeof( float );
+  size_t patternTexelOffset = 4 * sizeof( float );
   glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( vertexOffset ) );
-  glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( texelOffset ) );
+  glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( worldTexelOffset ) );
+  glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( patternTexelOffset ) );
   glBindVertexArray( 0 );
 }
 
@@ -362,14 +372,8 @@ void GLCanvas::CreateTexture()
 {
   // create texture
   {
-    int32_t maxTextureSize = 0;
-    glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
-    logger::Logger::instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
-
-    const auto size = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) );
-
-    mTextures.push_back( std::make_unique<Texture>( size, size ) );
-    mTextures.push_back( std::make_unique<Texture>( size, size ) );
+    mTextures.push_back( std::make_unique<Texture>( mTextureSize, mTextureSize ) );
+    mTextures.push_back( std::make_unique<Texture>( mTexturePatternSize, mTexturePatternSize, GL_REPEAT ) );
   }
 
   const auto pixelCount = mTextures.front()->width() * mTextures.front()->height();
@@ -411,10 +415,11 @@ void GLCanvas::CreateTexture()
           color = 40;
         }
 
-        const auto offset = i * 4ull + j * 4ull * mTextures.back()->width();
+        const auto offset = i * 4ull + j * 4ull * mTextures.back()->width(); // TODO no need for RGBA here
         pixelBuffer[offset + 0] = color;
         pixelBuffer[offset + 1] = color;
         pixelBuffer[offset + 2] = color;
+        pixelBuffer[offset + 3] = 0;
       }
     }
 
@@ -584,7 +589,7 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
 {
   SetCurrent( *mContext );
 
-  glClearColor( 0.05f, 0.05f, 0.05f, 1.0f );
+  glClearColor( 0.1f, 0.1f, 0.1f, 1.0f );
   glClear( GL_COLOR_BUFFER_BIT );
 
   glBindVertexArray( mVao );
