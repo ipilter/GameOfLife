@@ -521,7 +521,7 @@ void GLCanvas::Reset()
   // reset pixels in the front buffer
   mPBOs[mFrontBufferIdx]->mapCudaResource();
   uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-  RunFillKernel( mappedPtr, 255, mTextures.front()->width(), mTextures.front()->height() );
+  RunFillKernel( mappedPtr, mSecondaryColor.x, mTextures.front()->width(), mTextures.front()->height() );
   mPBOs[mFrontBufferIdx]->unmapCudaResource();
 
   // update texture from the front buffer
