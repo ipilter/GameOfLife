@@ -44,7 +44,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     mDeltaTimeSlider = new wxSlider( controlPanel, wxID_ANY, 10, 1, 100 );
     mDeltaTimeSlider->Bind( wxEVT_SLIDER, &MainFrame::OnSlider, this );
 
-    mPixelGridCheckBox = new wxCheckBox( controlPanel, wxID_ANY, "Pixel grid" );
+    mPixelGridCheckBox = new wxCheckBox( controlPanel, wxID_ANY, "Pixel Grid" );
 
     resetBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnResetButton, this );
     startBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnStartButton, this );
@@ -115,15 +115,6 @@ void MainFrame::AddLogMessage( const std::string& msg )
 
 void MainFrame::OnStepTimer()
 {
-  Timer* t;
-  if ( mLogStepRuntime )
-  {
-    if ( t = nullptr )
-    {
-      t = new Timer();
-    }
-    t->start();
-  }
   try
   {
     mGLCanvas->Step();
@@ -142,14 +133,6 @@ void MainFrame::OnStepTimer()
 
     std::stringstream ss;
     ss << "unknown Step error: ";
-    AddLogMessage( ss.str() );
-  }
-
-  if ( mLogStepRuntime )
-  {
-    t->stop();
-    std::stringstream ss;
-    ss << "Step " << std::fixed << std::setprecision( 4 ) << t->ms() << " ms";
     AddLogMessage( ss.str() );
   }
 }

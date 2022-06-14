@@ -2,7 +2,7 @@
 
 #include "Texture.h"
 
-Texture::Texture( const uint32_t width, const uint32_t height, const int wrap )
+Texture::Texture( const uint32_t width, const uint32_t height, const uint32_t wrap )
   : mWidth( width )
   , mHeight( height )
 {

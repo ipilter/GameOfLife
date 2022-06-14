@@ -50,7 +50,7 @@ private:
   void InitializeGLEW();
   void CreateGeometry();
   void CreateShaderProgram();
-  void CreateTexture();
+  void CreateTextures();
   uint32_t CreateShader( uint32_t kind, const std::string& src );
 
   math::vec2 ScreenToWorld( const math::ivec2& screenSpacePoint );

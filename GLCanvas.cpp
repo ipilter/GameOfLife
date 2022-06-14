@@ -85,7 +85,7 @@ GLCanvas::GLCanvas( const uint32_t textureSize
 
   CreateGeometry();
   CreateShaderProgram();
-  CreateTexture();
+  CreateTextures();
 
   // view
   mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 5.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
@@ -368,54 +368,60 @@ uint32_t GLCanvas::CreateShader( uint32_t kind, const std::string& src )
   return shaderId;
 }
 
-void GLCanvas::CreateTexture()
+void GLCanvas::CreateTextures()
 {
-  // create texture
+  // create world texture
   {
     mTextures.push_back( std::make_unique<Texture>( mTextureSize, mTextureSize ) );
-    mTextures.push_back( std::make_unique<Texture>( mTexturePatternSize, mTexturePatternSize, GL_REPEAT ) );
-  }
 
-  const auto pixelCount = mTextures.front()->width() * mTextures.front()->height();
-  const auto byteCount = pixelCount * 4ull;
+    const auto pixelCount = mTextures.front()->width() * mTextures.front()->height();
+    const auto byteCount = pixelCount * 4ull;
 
-  // allocate PBO pixels
-  mPBOs[mBackBufferIdx]->bindPbo();
-  mPBOs[mBackBufferIdx]->allocate( byteCount );
-  mPBOs[mBackBufferIdx]->registerCudaResource(); // TODO check this
-  mPBOs[mBackBufferIdx]->unbindPbo();
+    // allocate PBO pixels
+    mPBOs[mBackBufferIdx]->bindPbo();
+    mPBOs[mBackBufferIdx]->allocate( byteCount );
+    mPBOs[mBackBufferIdx]->registerCudaResource(); // TODO check this
+    mPBOs[mBackBufferIdx]->unbindPbo();
 
-  mPBOs[mFrontBufferIdx]->bindPbo();
-  mPBOs[mFrontBufferIdx]->allocate( byteCount );
-  mPBOs[mFrontBufferIdx]->registerCudaResource(); // TODO check this
+    mPBOs[mFrontBufferIdx]->bindPbo();
+    mPBOs[mFrontBufferIdx]->allocate( byteCount );
+    mPBOs[mFrontBufferIdx]->registerCudaResource(); // TODO check this
 
-  // initialize front buffer
-  {
+    // initialize front buffer
     uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
     std::fill( pixelBuffer, pixelBuffer + byteCount, 0 );
     mPBOs[mFrontBufferIdx]->unmapPboBuffer();
+
+    // update texture from front buffer
+    mTextures.back()->bind();
+    mTextures.back()->createFromPBO();
+    mTextures.back()->unbind();
+    mPBOs[mFrontBufferIdx]->unbindPbo();
   }
 
-  // update texture from front buffer
-  mTextures.front()->bind();
-  mTextures.front()->createFromPBO();
-  mTextures.front()->unbind();
-  mPBOs[mFrontBufferIdx]->unbindPbo();
-
-  // create pixel grid texture
+  // create pixel grid checkerboard texture
   {
-    uint8_t* pixelBuffer = new uint8_t[byteCount];
+    mTextures.push_back( std::make_unique<Texture>( mTexturePatternSize, mTexturePatternSize, GL_REPEAT ) );
+
+    const uint8_t backgroundColor = 20;
+    const uint8_t darkForegroundColor = 30;
+    const uint8_t lightForegroundColor = 50;
+    const auto pixelCount = mTextures.back()->width() * mTextures.back()->height();
+    const auto byteCount = pixelCount * 4ull; // TODO no need for RGBA here
+
+    std::unique_ptr<uint8_t[]> pixelBuffer = std::make_unique<uint8_t[]>( byteCount );
     for ( uint32_t j = 0; j < mTextures.back()->height(); ++j )
     {
       for ( uint32_t i = 0; i < mTextures.back()->width(); ++i )
       {
-        uint8_t color = ( ( ( i & 0x1 ) == 0 ) ^ ( ( j & 0x1 ) == 0 ) ) * 20;
-        if ( color && ( (i % 10 == 0) || (j % 10 == 0) ) )
+        const bool isGridPixel = ( ( ( i & 0x1 ) == 0 ) ^ ( ( j & 0x1 ) == 0 ) );
+        uint8_t color = isGridPixel ? darkForegroundColor : backgroundColor;
+        if ( isGridPixel && ( (i % 10 == 0) || (j % 10 == 0) ) )
         {
-          color = 40;
+          color = lightForegroundColor;
         }
 
-        const auto offset = i * 4ull + j * 4ull * mTextures.back()->width(); // TODO no need for RGBA here
+        const auto offset = i * 4ull + j * 4ull * mTextures.back()->width();
         pixelBuffer[offset + 0] = color;
         pixelBuffer[offset + 1] = color;
         pixelBuffer[offset + 2] = color;
@@ -424,7 +430,7 @@ void GLCanvas::CreateTexture()
     }
 
     mTextures.back()->bind();
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mTextures.back()->width(), mTextures.back()->height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer );
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mTextures.back()->width(), mTextures.back()->height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer.get() );
     mTextures.back()->unbind();
   }
 

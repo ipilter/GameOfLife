@@ -46,7 +46,6 @@ private:
   wxCheckBox* mPixelGridCheckBox;
 
   bool mStepTimerRuning = false;
-  bool mLogStepRuntime = false;
   std::unique_ptr<StepTimer> mStepTimer;
   float mStepDeltaTime = 0.0f;
 };
