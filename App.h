@@ -19,6 +19,6 @@ private:
 
 private:
   MainFrame* mMainFrame;
-  uint32_t mTextureSize = 8;
-  uint32_t mDeltaTime = 100;
+  uint32_t mTextureSize = 101;
+  uint32_t mDeltaTime = 120;
 };

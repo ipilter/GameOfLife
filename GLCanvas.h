@@ -14,10 +14,10 @@
 class GLCanvas : public wxGLCanvas
 {
 public:
-  GLCanvas( const uint32_t textureExponent
+  GLCanvas( const uint32_t textureSize
             , wxWindow* parent
             , wxWindowID id = wxID_ANY
-            , const int* attribList = 0
+            , const int32_t* attribList = 0
             , const wxPoint& pos = wxDefaultPosition
             , const wxSize& size = wxDefaultSize
             , long style = 0L
@@ -74,8 +74,8 @@ private:
   std::unique_ptr<wxGLContext> mContext;
 
   // parameters
-  float mQuadSize = 1.0f;
-  uint32_t mTextureExponent = 1;
+  float mQuadSize;
+  uint32_t mTextureSize;
 
   // mesh
   uint32_t mVbo = 0;

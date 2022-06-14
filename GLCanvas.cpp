@@ -14,7 +14,7 @@
 #include <cuda_gl_interop.h>
 #include <cuda_runtime.h>
 
-GLCanvas::GLCanvas( const uint32_t textureExponent
+GLCanvas::GLCanvas( const uint32_t textureSize
                     , wxWindow* parent
                     , wxWindowID id
                     , const int32_t* attribList
@@ -24,7 +24,8 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
                     , const wxString& name
                     , const wxPalette& palette )
   : wxGLCanvas( parent, id, attribList, pos, size, style, name, palette )
-  , mTextureExponent( textureExponent )
+  , mQuadSize( 1.0f )
+  , mTextureSize( textureSize )
 {
   wxGLContextAttrs contextAttrs;
   contextAttrs.CoreProfile().OGLVersion( 4, 5 ).Robust().ResetIsolation().EndList();
@@ -135,7 +136,7 @@ GLCanvas::GLCanvas( const uint32_t textureExponent
                                                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Big Ship", 34, 35, std::vector<bool> {
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Unknown Ship", 34, 35, std::vector<bool> {
                                                                       0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
                                                                       0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
                                                                       0,1,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -361,14 +362,14 @@ void GLCanvas::CreateTexture()
 {
   // create texture
   {
-    const uint32_t size = static_cast<uint32_t>( glm::pow( 2.0f, static_cast<float>( mTextureExponent ) ) );
     int32_t maxTextureSize = 0;
     glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
     logger::Logger::instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
 
-    mTextures.push_back( std::make_unique<Texture>( glm::min( size, static_cast<uint32_t>( maxTextureSize ) ), glm::min( size, static_cast<uint32_t>( maxTextureSize ) ) ) );
-    mTextures.push_back( std::make_unique<Texture>( glm::min( size, static_cast<uint32_t>( maxTextureSize ) ), glm::min( size, static_cast<uint32_t>( maxTextureSize ) ) ) );
-    logger::Logger::instance() << "Creating texture with size " << mTextures.front()->width() << "x" << mTextures.front()->height() << "\n";
+    const auto size = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) );
+
+    mTextures.push_back( std::make_unique<Texture>( size, size ) );
+    mTextures.push_back( std::make_unique<Texture>( size, size ) );
   }
 
   const auto pixelCount = mTextures.front()->width() * mTextures.front()->height();
@@ -384,63 +385,48 @@ void GLCanvas::CreateTexture()
   mPBOs[mFrontBufferIdx]->allocate( byteCount );
   mPBOs[mFrontBufferIdx]->registerCudaResource(); // TODO check this
 
-  // init PBO data with zero
+  // initialize front buffer
   {
     uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
     std::fill( pixelBuffer, pixelBuffer + byteCount, 0 );
     mPBOs[mFrontBufferIdx]->unmapPboBuffer();
   }
 
-  // bind texture
+  // update texture from front buffer
   mTextures.front()->bind();
-
-  // create texture from PBO pixels
   mTextures.front()->createFromPBO();
-
-  // unbind texture
   mTextures.front()->unbind();
-
-  // unbind PBO
   mPBOs[mFrontBufferIdx]->unbindPbo();
 
-  std::stringstream ss;
-  ss << " Texture with dimensions " << mTextures.front()->width() << "x" << mTextures.front()->height() << " created";
-  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-
-  // pixel grid pattern
+  // create pixel grid texture
   {
     uint8_t* pixelBuffer = new uint8_t[byteCount];
-    bool on = true;
     for ( uint32_t j = 0; j < mTextures.back()->height(); ++j )
     {
       for ( uint32_t i = 0; i < mTextures.back()->width(); ++i )
       {
-        auto color = 0;
-        if ( on )
+        uint8_t color = ( ( ( i & 0x1 ) == 0 ) ^ ( ( j & 0x1 ) == 0 ) ) * 20;
+        if ( color && ( (i % 10 == 0) || (j % 10 == 0) ) )
         {
-          if ( (i % 10 == 0) || (j % 10 == 0) )
-          {
-            color = 30;
-          }
-          else
-          {
-            color = 20;
-          }
+          color = 40;
         }
 
         const auto offset = i * 4ull + j * 4ull * mTextures.back()->width();
-        pixelBuffer[offset+0] = color;
-        pixelBuffer[offset+1] = color;
-        pixelBuffer[offset+2] = color;
-        on = !on;
+        pixelBuffer[offset + 0] = color;
+        pixelBuffer[offset + 1] = color;
+        pixelBuffer[offset + 2] = color;
       }
-      on = !on;
     }
 
     mTextures.back()->bind();
     glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mTextures.back()->width(), mTextures.back()->height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer );
     mTextures.back()->unbind();
   }
+
+  std::stringstream ss;
+  ss << " Texture with dimensions " << mTextures.front()->width() << "x" << mTextures.front()->height() << " created";
+  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
+  logger::Logger::instance() << "Creating texture with size " << mTextures.front()->width() << "x" << mTextures.front()->height() << "\n";
 }
 
 math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
@@ -535,7 +521,7 @@ void GLCanvas::Reset()
   // reset pixels in the front buffer
   mPBOs[mFrontBufferIdx]->mapCudaResource();
   uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-  RunFillKernel( mappedPtr, 0, mTextures.front()->width(), mTextures.front()->height() );
+  RunFillKernel( mappedPtr, 255, mTextures.front()->width(), mTextures.front()->height() );
   mPBOs[mFrontBufferIdx]->unmapCudaResource();
 
   // update texture from the front buffer
@@ -550,15 +536,22 @@ void GLCanvas::Reset()
 
 void GLCanvas::Random()
 {
-  try
-  {
-  }
-  catch ( const std::exception& e )
-  {
-    std::stringstream ss;
-    ss << e.what();
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  }
+  // reset pixels in the front buffer
+  mPBOs[mFrontBufferIdx]->mapCudaResource();
+  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+
+  RunRandomKernel( mappedPtr, mPrimaryColor.x, mSecondaryColor.x, 0.9f, mTextures.front()->width(), mTextures.front()->height() );
+
+  mPBOs[mFrontBufferIdx]->unmapCudaResource();
+
+  // update texture from the front buffer
+  mPBOs[mFrontBufferIdx]->bindPbo();
+  mTextures.front()->bind();
+  mTextures.front()->updateFromPBO();
+  mTextures.front()->bind();
+  mPBOs[mFrontBufferIdx]->unbindPbo();
+
+  Refresh();
 }
 
 void GLCanvas::RotatePattern()

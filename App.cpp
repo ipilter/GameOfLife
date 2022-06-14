@@ -45,7 +45,7 @@ void App::OnInitCmdLine( wxCmdLineParser& parser )
   {
     { wxCMD_LINE_SWITCH, "v", "verbose", "be verbose" },
     { wxCMD_LINE_SWITCH, "q", "quiet",   "be quiet" },
-    { wxCMD_LINE_OPTION, "e", "exponent", "texture size exponent", wxCMD_LINE_VAL_NUMBER },
+    { wxCMD_LINE_OPTION, "s", "size", "texture size in pixels", wxCMD_LINE_VAL_NUMBER },
     { wxCMD_LINE_NONE }
   };
 
@@ -57,7 +57,7 @@ bool App::OnCmdLineParsed( wxCmdLineParser& parser )
   wxApp::OnCmdLineParsed( parser );
 
   long parsedOption = 0;
-  if ( parser.Found( wxT("e"), &parsedOption ) )
+  if ( parser.Found( wxT("s"), &parsedOption ) )
   {
     mTextureSize = static_cast<uint32_t>( parsedOption );
   }

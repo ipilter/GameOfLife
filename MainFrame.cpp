@@ -7,7 +7,7 @@
 #include "Timer.h"
 #include "Util.h"
 
-MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const uint32_t exponent )
+MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const uint32_t textureSize )
   : wxFrame( parent, wxID_ANY, title, pos, size )
   , mGLCanvas( nullptr )
   , mPrimaryColorButton( nullptr )
@@ -20,7 +20,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
 
     auto* mainPanel = new wxPanel( this, wxID_ANY );
     mLogTextBox = new wxTextCtrl( mainPanel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE );
-    mGLCanvas = new GLCanvas( exponent, mainPanel, wxID_ANY );
+    mGLCanvas = new GLCanvas( textureSize, mainPanel, wxID_ANY );
 
     auto* mainSizer = new wxBoxSizer( wxVERTICAL );
     mainSizer->Add( mGLCanvas, 90, wxEXPAND );
@@ -32,7 +32,6 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     auto* startBtn = new wxButton( controlPanel, wxID_ANY, "Start" );
     auto* stopBtn = new wxButton( controlPanel, wxID_ANY, "Stop" );
     auto* randomBtn = new wxButton( controlPanel, wxID_ANY, "Random" );
-    mPixelGridCheckBox = new wxCheckBox( controlPanel, wxID_ANY, "Pixel grid" );
     mPrimaryColorButton = new wxButton( controlPanel, wxID_ANY );
     mPrimaryColorButton->SetBackgroundColour( wxColor( mGLCanvas->GetPrimaryColor().x, mGLCanvas->GetPrimaryColor().y, mGLCanvas->GetPrimaryColor().z ) );
     
@@ -45,8 +44,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     mDeltaTimeSlider = new wxSlider( controlPanel, wxID_ANY, 10, 1, 100 );
     mDeltaTimeSlider->Bind( wxEVT_SLIDER, &MainFrame::OnSlider, this );
 
-    auto percentage = mDeltaTimeSlider->GetValue() / 100.0f;
-    mStepDeltaTime = (500u - 1u) * percentage; // percentage of min max milliseconds
+    mPixelGridCheckBox = new wxCheckBox( controlPanel, wxID_ANY, "Pixel grid" );
 
     resetBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnResetButton, this );
     startBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnStartButton, this );
@@ -54,6 +52,9 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     randomBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnRandomButton, this );
     mPrimaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnPrimaryColorButton, this );
     mSecondaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnSecondaryColorButton, this );
+
+    auto percentage = mDeltaTimeSlider->GetValue() / 100.0f;
+    mStepDeltaTime = (500u - 0u) * percentage; // percentage of min max milliseconds
 
     mPixelGridCheckBox->Bind( wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::OnPixelCheckBox, this ); 
     mPixelGridCheckBox->SetForegroundColour( wxColor( 255, 255, 255 ) );
@@ -230,7 +231,7 @@ void MainFrame::OnPatternComboBox( wxCommandEvent& /*event*/ )
 
 void MainFrame::OnSlider( wxCommandEvent& event )
 {
-  // TODO redundant
+  // TODO redundant and not correct
   auto percentage = mDeltaTimeSlider->GetValue() / 100.0f;
   mStepDeltaTime = (500u - 0u) * percentage; // percentage of min max milliseconds
   if ( mStepTimerRuning )
@@ -238,10 +239,6 @@ void MainFrame::OnSlider( wxCommandEvent& event )
     OnStopButton( event );
     OnStartButton( event );
   }
-
-  std::stringstream ss;
-  ss << "slider: " << mStepDeltaTime;
-  AddLogMessage( ss.str() );
 }
 
 void MainFrame::OnPixelCheckBox( wxCommandEvent& event )

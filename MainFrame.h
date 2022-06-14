@@ -9,7 +9,7 @@ class MainFrame : public wxFrame
   friend class StepTimer;
 
 public:
-  MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const uint32_t exponent );
+  MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, const wxSize& size, const uint32_t textureSize );
   virtual ~MainFrame();
 
   void AddLogMessage( const std::string& msg );
