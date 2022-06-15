@@ -13,6 +13,18 @@
 
 class GLCanvas : public wxGLCanvas
 {
+  class StepTimer : public wxTimer
+  {
+  public:
+    StepTimer( GLCanvas* parent );
+    virtual void Notify();
+
+  private:
+    GLCanvas* mParent;
+  };
+
+  friend class StepTimer;
+
 public:
   GLCanvas( const uint32_t textureSize
             , wxWindow* parent
@@ -41,10 +53,12 @@ public:
   const Pattern& GetPattern( const uint32_t idx ) const;
   void SetDrawPixelGrid( const bool drawPixelGrid );
 
-  void Step();
   void Reset();
   void Random();
   void RotatePattern();
+  void Start();
+  void Stop();
+  void SetDeltaTime( const uint32_t dt );
 
 private:
   void InitializeGLEW();
@@ -55,6 +69,8 @@ private:
 
   math::vec2 ScreenToWorld( const math::ivec2& screenSpacePoint );
   math::ivec2 WorldToImage( const math::vec2& worldSpacePoint );
+
+  void Step();
 
   void SetPixel( const math::uvec2& pixel );
   void OnPaint( wxPaintEvent& event );
@@ -69,6 +85,7 @@ private:
   void OnMouseLeave( wxMouseEvent& event );
   void OnMouseWheel( wxMouseEvent& event );
   void OnKeyDown( wxKeyEvent& event );
+  void OnStepTimer();
 
   // opengl context
   std::unique_ptr<wxGLContext> mContext;
@@ -112,4 +129,9 @@ private:
   std::vector<Pattern::Ptr> mDrawPatterns;
   Pattern mDrawPattern;
   bool mDrawPixelGrid = false;
+
+  // step timer
+  bool mStepTimerRuning = false;
+  std::unique_ptr<StepTimer> mStepTimer;
+  float mStepDeltaTime = 0.0f;
 };

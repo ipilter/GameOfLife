@@ -54,10 +54,12 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     mSecondaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnSecondaryColorButton, this );
 
     auto percentage = mDeltaTimeSlider->GetValue() / 100.0f;
-    mStepDeltaTime = (500u - 0u) * percentage; // percentage of min max milliseconds
+    mGLCanvas->SetDeltaTime( ( 500u - 0u ) * percentage ); // TODO fix
 
     mPixelGridCheckBox->Bind( wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::OnPixelCheckBox, this ); 
     mPixelGridCheckBox->SetForegroundColour( wxColor( 255, 255, 255 ) );
+    mPixelGridCheckBox->SetValue( true );
+    mGLCanvas->SetDrawPixelGrid( mPixelGridCheckBox->IsChecked() );
 
     auto* controlSizer = new wxBoxSizer( wxVERTICAL ); // TODO List of controls instead these
     controlSizer->Add( resetBtn, 0, wxEXPAND );
@@ -77,10 +79,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
 
     this->SetSizer( sizer );
 
-    mStepTimer = std::make_unique<StepTimer>( this );
-
     controlPanel->SetBackgroundColour( wxColor( 21, 21, 21 ) );
-
     mLogTextBox->SetBackgroundColour( wxColor( 21, 21, 21 ) );
     mLogTextBox->SetForegroundColour( wxColor( 180, 180, 180 ) );
 
@@ -113,53 +112,14 @@ void MainFrame::AddLogMessage( const std::string& msg )
   mLogTextBox->WriteText( ( msg + "\n" ) );
 }
 
-void MainFrame::OnStepTimer()
-{
-  try
-  {
-    mGLCanvas->Step();
-  }
-  catch ( const std::exception& e )
-  {
-    mStepTimer->Stop();
-
-    std::stringstream ss;
-    ss << "Step error: " << e.what();
-    AddLogMessage( ss.str() );
-  }
-  catch ( ... )
-  {
-    mStepTimer->Stop();
-
-    std::stringstream ss;
-    ss << "unknown Step error: ";
-    AddLogMessage( ss.str() );
-  }
-}
-
 void MainFrame::OnStartButton( wxCommandEvent& /*event*/ )
 {
-  if ( mStepTimerRuning )
-  {
-    return;
-  }
-
-  mStepTimer->Start( mStepDeltaTime );
-  mStepTimerRuning = true;
-  AddLogMessage( std::string("simulation started ") + util::ToString<float>( mStepDeltaTime ) + " ms");
+  mGLCanvas->Start();
 }
 
 void MainFrame::OnStopButton(wxCommandEvent& /*event*/)
 {
-  if ( !mStepTimerRuning )
-  {
-    return;
-  }
-
-  mStepTimer->Stop();
-  mStepTimerRuning = false;
-
-  AddLogMessage( "simulation stopped" );
+  mGLCanvas->Stop();
 }
 
 void MainFrame::OnResetButton(wxCommandEvent& /*event*/)
@@ -216,25 +176,10 @@ void MainFrame::OnSlider( wxCommandEvent& event )
 {
   // TODO redundant and not correct
   auto percentage = mDeltaTimeSlider->GetValue() / 100.0f;
-  mStepDeltaTime = (500u - 0u) * percentage; // percentage of min max milliseconds
-  if ( mStepTimerRuning )
-  {
-    OnStopButton( event );
-    OnStartButton( event );
-  }
+  mGLCanvas->SetDeltaTime( ( 500u - 0u ) * percentage );
 }
 
 void MainFrame::OnPixelCheckBox( wxCommandEvent& event )
 {
   mGLCanvas->SetDrawPixelGrid( mPixelGridCheckBox->IsChecked() );
-}
-
-// StepTimer
-MainFrame::StepTimer::StepTimer( MainFrame* parent )
-  : mParent( parent )
-{}
-
-void MainFrame::StepTimer::Notify()
-{
-  mParent->OnStepTimer();
 }

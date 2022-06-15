@@ -70,7 +70,6 @@ __global__ void FillKernel( uint8_t* buffer, const uint32_t width, const uint32_
   buffer[offset + 0] = value;
   buffer[offset + 1] = value;
   buffer[offset + 2] = value;
-  buffer[offset + 3] = value;
 }
 
 __global__ void InitRandom( unsigned int seed, const uint32_t width, const uint32_t height, curandState_t* states )
@@ -124,7 +123,7 @@ cudaError_t RunFillKernel(uint8_t* buffer, const uint8_t value, const uint32_t w
   cudaEventCreate( &stop );
 
   cudaEventRecord( start, 0 );
-  FillKernel <<<blocksPerGrid, threadsPerBlock>>> ( buffer, width, height, value );
+  FillKernel<<<blocksPerGrid, threadsPerBlock>>> ( buffer, width, height, value );
   cudaEventRecord( stop, 0 );
   cudaEventSynchronize( stop );
 
@@ -144,7 +143,9 @@ cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t w
   cudaEventCreate( &stop );
 
   cudaEventRecord( start, 0 );
-  StepKernel <<<blocksPerGrid, threadsPerBlock>>> ( frontBuffer, backBuffer, width, height );
+  
+  StepKernel<<<blocksPerGrid, threadsPerBlock>>> ( frontBuffer, backBuffer, width, height );
+  
   cudaEventRecord( stop, 0 );
   cudaEventSynchronize( stop );
 
@@ -161,8 +162,8 @@ cudaError_t RunRandomKernel( uint8_t* buffer, const uint8_t living, const uint8_
   // TODO: revisit this random number stuff. Random states per pixel?
   curandState_t* states = nullptr;
   cudaMalloc((void**) &states, width * height * sizeof(curandState_t));
-  InitRandom<<<blocksPerGrid, threadsPerBlock>>>(time(0), width, height, states);
 
+  InitRandom<<<blocksPerGrid, threadsPerBlock>>>(time(0), width, height, states);
   RandomKernel<<<blocksPerGrid, threadsPerBlock>>> ( buffer, width, height, living, dead, prob, states );
 
   cudaFree( states );

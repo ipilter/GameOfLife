@@ -179,6 +179,8 @@ GLCanvas::GLCanvas( const uint32_t textureSize
                                                                       0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
                                                                       0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 } ) ) );
   }
+
+  mStepTimer = std::make_unique<StepTimer>( this );
 }
 
 GLCanvas::~GLCanvas()
@@ -591,6 +593,38 @@ void GLCanvas::Step()
   Refresh();
 }
 
+void GLCanvas::Start()
+{
+  if ( mStepTimerRuning )
+  {
+    return;
+  }
+
+  mStepTimer->Start( mStepDeltaTime );
+  mStepTimerRuning = true;
+}
+
+void GLCanvas::Stop()
+{
+  if ( !mStepTimerRuning )
+  {
+    return;
+  }
+
+  mStepTimer->Stop();
+  mStepTimerRuning = false;
+}
+
+void GLCanvas::SetDeltaTime( const uint32_t dt )
+{
+  mStepDeltaTime = dt;
+  if ( mStepTimerRuning )
+  {
+    Stop();
+    Start();
+  }
+}
+
 void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
 {
   SetCurrent( *mContext );
@@ -759,8 +793,45 @@ void GLCanvas::OnKeyDown( wxKeyEvent& event )
   {
     RotatePattern();
   }
+  else if ( event.GetKeyCode() == WXK_SPACE )
+  {
+    if ( mStepTimerRuning )
+    {
+      Stop();
+    }
+    else
+    {
+      Start();
+    }
+  }
   else
   {
     event.Skip();
   }
+}
+
+void GLCanvas::OnStepTimer()
+{
+  try
+  {
+    Step();
+  }
+  catch ( const std::exception& )
+  {
+    mStepTimer->Stop();
+  }
+  catch ( ... )
+  {
+    mStepTimer->Stop();
+  }
+}
+
+// StepTimer
+GLCanvas::StepTimer::StepTimer( GLCanvas* parent )
+  : mParent( parent )
+{}
+
+void GLCanvas::StepTimer::Notify()
+{
+  mParent->OnStepTimer();
 }
