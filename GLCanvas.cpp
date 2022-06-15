@@ -72,8 +72,8 @@ GLCanvas::GLCanvas( const uint32_t textureSize
 
   // create PBOs
   mPBOs.push_back( std::make_unique<PixelBufferObject>() );
-  mFrontBufferIdx = 0;
   mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mFrontBufferIdx = 0;
   mBackBufferIdx = 1;
 
   // stuff

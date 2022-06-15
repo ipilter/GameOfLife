@@ -9,11 +9,6 @@
 
 #include "Kernel.cuh"
 
-uint32_t iDivUp( const uint32_t a, const uint32_t b )
-{
-  return ( ( a % b ) != 0 ) ? ( a / b + 1 ) : ( a / b );
-}
-
 __device__ const uint8_t& max( const uint8_t& a, const uint8_t& b )
 {
   return a >= b ? a : b;
@@ -115,15 +110,16 @@ __global__ void RandomKernel( uint8_t* buffer, const uint32_t width, const uint3
 
 cudaError_t RunFillKernel(uint8_t* buffer, const uint8_t value, const uint32_t width, const uint32_t height)
 {
-  dim3 threadsPerBlock( 32, 32, 1 );
-  dim3 blocksPerGrid( iDivUp( width, threadsPerBlock.x ), iDivUp( height, threadsPerBlock.y ), 1 );
+  const dim3 blockSize( 32, 32 );// number of threads per block along x/y-axis
+  const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
+                       , (height + blockSize.y - 1) / blockSize.y ); // number of blocks in the grid
 
   cudaEvent_t start, stop;
   cudaEventCreate( &start );
   cudaEventCreate( &stop );
 
   cudaEventRecord( start, 0 );
-  FillKernel<<<blocksPerGrid, threadsPerBlock>>> ( buffer, width, height, value );
+  FillKernel<<<gridSize, blockSize>>> ( buffer, width, height, value );
   cudaEventRecord( stop, 0 );
   cudaEventSynchronize( stop );
 
@@ -135,8 +131,9 @@ cudaError_t RunFillKernel(uint8_t* buffer, const uint8_t value, const uint32_t w
 
 cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t width, uint32_t height )
 {
-  dim3 threadsPerBlock( 32, 32, 1 );
-  dim3 blocksPerGrid( iDivUp( width, threadsPerBlock.x ), iDivUp( height, threadsPerBlock.y ), 1 );
+  const dim3 blockSize( 32, 32 );// number of threads per block along x/y-axis
+  const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
+                       , (height + blockSize.y - 1) / blockSize.y ); // number of blocks in the grid
 
   cudaEvent_t start, stop;
   cudaEventCreate( &start );
@@ -144,7 +141,7 @@ cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t w
 
   cudaEventRecord( start, 0 );
   
-  StepKernel<<<blocksPerGrid, threadsPerBlock>>> ( frontBuffer, backBuffer, width, height );
+  StepKernel<<<gridSize, blockSize>>> ( frontBuffer, backBuffer, width, height );
   
   cudaEventRecord( stop, 0 );
   cudaEventSynchronize( stop );
@@ -156,15 +153,16 @@ cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t w
 
 cudaError_t RunRandomKernel( uint8_t* buffer, const uint8_t living, const uint8_t dead, const float prob, const uint32_t width, const uint32_t height )
 {
-  dim3 threadsPerBlock( 32, 32, 1 );
-  dim3 blocksPerGrid( iDivUp( width, threadsPerBlock.x ), iDivUp( height, threadsPerBlock.y ), 1 );
+  const dim3 blockSize( 32, 32 );// number of threads per block along x/y-axis
+  const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
+                       , (height + blockSize.y - 1) / blockSize.y ); // number of blocks in the grid
 
   // TODO: revisit this random number stuff. Random states per pixel?
   curandState_t* states = nullptr;
   cudaMalloc((void**) &states, width * height * sizeof(curandState_t));
 
-  InitRandom<<<blocksPerGrid, threadsPerBlock>>>(time(0), width, height, states);
-  RandomKernel<<<blocksPerGrid, threadsPerBlock>>> ( buffer, width, height, living, dead, prob, states );
+  InitRandom<<<gridSize, blockSize>>>(time(0), width, height, states);
+  RandomKernel<<<gridSize, blockSize>>> ( buffer, width, height, living, dead, prob, states );
 
   cudaFree( states );
 
