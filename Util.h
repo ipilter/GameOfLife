@@ -27,25 +27,6 @@ inline std::string ToString( const T& t )
   return ss.str();
 }
 
-template<class T>
-inline T Random( const T min, const T max )
-{
-  if ( max < min )
-  {
-    std::stringstream ss;
-    ss << "random range. min = " << min << "  max = " << max;
-    throw std::runtime_error( ss.str() );
-  }
-
-  static bool Initialized = false;
-  if ( !Initialized )
-  {
-    srand( static_cast<uint32_t>( std::time( nullptr ) ) );
-    Initialized = true;
-  }
-  return min + T( std::rand() ) / T( RAND_MAX ) * ( max - min );
-}
-
 inline std::string ReadTextFile( const std::string& path )
 {
   std::ifstream is( path );

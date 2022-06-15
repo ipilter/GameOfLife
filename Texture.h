@@ -12,18 +12,18 @@ public:
   Texture( const uint32_t width, const uint32_t height, const uint32_t wrap = GL_CLAMP );
   ~Texture();
 
-  void bind();
-  void unbind();
+  void Bind();
+  void Unbind();
 
-  void bindTextureUnit( const uint32_t unitId );
-  void unbindTextureUnit();
+  void BindTextureUnit( const uint32_t unitId );
+  void UnbindTextureUnit();
 
-  void createFromPBO();
-  void updateFromPBO();
-  void updateFromPBO( uint32_t regionPosX, uint32_t regionPosY, uint32_t regionWidth, uint32_t regionHeight );
+  void CreateFromPBO();
+  void UpdateFromPBO();
+  void UpdateFromPBO( uint32_t regionPosX, uint32_t regionPosY, uint32_t regionWidth, uint32_t regionHeight );
 
-  uint32_t width() const;
-  uint32_t height() const;
+  uint32_t Width() const;
+  uint32_t Height() const;
 
 private:
   uint32_t mId = 0;

@@ -14,32 +14,37 @@ Pattern::Pattern( const std::string& name, const uint32_t w, const uint32_t h, c
 Pattern::Pattern()
 {}
 
-bool Pattern::at( const uint32_t x, const uint32_t y ) const
+bool Pattern::At( const uint32_t x, const uint32_t y ) const
 {
   return mBits[x + mWidth * y];
 }
 
-const std::string& Pattern::name() const
+const std::string& Pattern::GetName() const
 {
   return mName;
 }
 
-uint32_t Pattern::width() const
+void Pattern::SetName( const std::string& name )
+{
+  mName = name;
+}
+
+uint32_t Pattern::Width() const
 {
   return mWidth;
 }
 
-uint32_t Pattern::height() const
+uint32_t Pattern::Height() const
 {
   return mHeight;
 }
 
-Pattern::Bits& Pattern::bits()
+Pattern::Bits& Pattern::GetBits()
 {
   return mBits;
 }
 
-void Pattern::write( std::ofstream& stream )
+void Pattern::Write( std::ofstream& stream )
 {
   util::Write_t( stream, mWidth );
   util::Write_t( stream, mHeight );
@@ -47,7 +52,7 @@ void Pattern::write( std::ofstream& stream )
   util::Write_t( stream, mBits );
 }
 
-void Pattern::read( std::ifstream& stream )
+void Pattern::Read( std::ifstream& stream )
 {
   util::Read_t<uint32_t>( stream, mWidth );
   util::Read_t<uint32_t>( stream, mHeight );
@@ -55,7 +60,7 @@ void Pattern::read( std::ifstream& stream )
   util::Read_t<>( stream, mBits );
 }
 
-void Pattern::rotate()
+void Pattern::Rotate()
 {
   Pattern old( *this );
   mWidth = old.mHeight;
@@ -69,9 +74,4 @@ void Pattern::rotate()
       mBits[i + j * mWidth] = old.mBits[( old.mWidth - 1 - j ) + i * old.mWidth];
     }
   }
-}
-
-void Pattern::setName( const std::string& name )
-{
-  mName = name;
 }

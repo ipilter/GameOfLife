@@ -79,7 +79,7 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   // stuff
   int32_t maxTextureSize = 0;
   glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
-  logger::Logger::instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
+  logger::Logger::Instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
   mTextureSize = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) ); // nxn pixels
   mTexturePatternSize = 10; // nxn pixels
 
@@ -100,7 +100,7 @@ GLCanvas::GLCanvas( const uint32_t textureSize
     for( auto i(0); i < count; ++i )
     {
       mDrawPatterns[i] = std::move( std::make_unique<Pattern>() );
-      mDrawPatterns[i]->read( patternsStream );
+      mDrawPatterns[i]->Read( patternsStream );
     }
   }
   else
@@ -190,7 +190,7 @@ GLCanvas::~GLCanvas()
     util::Write_t( patternsStream, mDrawPatterns.size() );
     for ( auto& p : mDrawPatterns )
     {
-      p->write( patternsStream );
+      p->Write( patternsStream );
     }
   }
 
@@ -199,10 +199,6 @@ GLCanvas::~GLCanvas()
   glDeleteShader( mVertexShader );
   glDeleteShader( mFragmentxShader );
   glDeleteProgram( mShaderProgram );
-
-  glDeleteVertexArrays( 1, &mVao );
-  glDeleteBuffers( 1, &mVbo );
-  glDeleteBuffers( 1, &mIbo );
 }
 
 void GLCanvas::SetPrimaryColor( const math::uvec3& color )
@@ -253,12 +249,12 @@ void GLCanvas::InitializeGLEW()
   GLenum err = glewInit();
   if ( err != GLEW_OK )
   {
-    const GLubyte* msg = glewGetErrorString( err );
+    const uint8_t* msg = glewGetErrorString( err );
     throw std::exception( reinterpret_cast<const char*>( msg ) );
   }
 
   auto fp64 = glewGetExtension( "GL_ARB_gpu_shader_fp64" );
-  logger::Logger::instance() << "GL_ARB_gpu_shader_fp64 " << ( fp64 == 1 ? "supported" : "not supported" ) << "\n";
+  logger::Logger::Instance() << "GL_ARB_gpu_shader_fp64 " << ( fp64 == 1 ? "supported" : "not supported" ) << "\n";
 }
 
 void GLCanvas::CreateGeometry()
@@ -272,30 +268,13 @@ void GLCanvas::CreateGeometry()
 
   const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
 
-  glGenBuffers( 1, &mVbo );
-  glBindBuffer( GL_ARRAY_BUFFER, mVbo );
-  glBufferData( GL_ARRAY_BUFFER, sizeof( float ) * points.size(), &points.front(), GL_STATIC_DRAW );
+  // layout of data inside points array
+  const size_t stride = 6 * sizeof( float );
+  const size_t vertexOffset = 0;
+  const size_t worldTexelOffset = 2 * sizeof( float );
+  const size_t patternTexelOffset = 4 * sizeof( float );
 
-  glGenBuffers( 1, &mIbo );
-  glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIbo );
-  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( uint32_t ) * indices.size(), &indices.front(), GL_STATIC_DRAW );
-
-  glGenVertexArrays( 1, &mVao );
-  glBindVertexArray( mVao );
-  glEnableVertexAttribArray( 0 );
-  glEnableVertexAttribArray( 1 );
-  glEnableVertexAttribArray( 2 );
-  glBindBuffer( GL_ARRAY_BUFFER, mVbo );
-  glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIbo );
-
-  uint32_t stride = 6 * sizeof( float );
-  size_t vertexOffset = 0;
-  size_t worldTexelOffset = 2 * sizeof( float );
-  size_t patternTexelOffset = 4 * sizeof( float );
-  glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( vertexOffset ) );
-  glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( worldTexelOffset ) );
-  glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( patternTexelOffset ) );
-  glBindVertexArray( 0 );
+  mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, worldTexelOffset, patternTexelOffset ) );
 }
 
 void GLCanvas::CreateShaderProgram()
@@ -376,29 +355,29 @@ void GLCanvas::CreateTextures()
   {
     mTextures.push_back( std::make_unique<Texture>( mTextureSize, mTextureSize ) );
 
-    const auto pixelCount = mTextures.front()->width() * mTextures.front()->height();
+    const auto pixelCount = mTextures.front()->Width() * mTextures.front()->Height();
     const auto byteCount = pixelCount * 4ull;
 
     // allocate PBO pixels
-    mPBOs[mBackBufferIdx]->bindPbo();
-    mPBOs[mBackBufferIdx]->allocate( byteCount );
-    mPBOs[mBackBufferIdx]->registerCudaResource(); // TODO check this
-    mPBOs[mBackBufferIdx]->unbindPbo();
+    mPBOs[mBackBufferIdx]->BindPbo();
+    mPBOs[mBackBufferIdx]->Allocate( byteCount );
+    mPBOs[mBackBufferIdx]->RegisterCudaResource(); // TODO check this
+    mPBOs[mBackBufferIdx]->UnbindPbo();
 
-    mPBOs[mFrontBufferIdx]->bindPbo();
-    mPBOs[mFrontBufferIdx]->allocate( byteCount );
-    mPBOs[mFrontBufferIdx]->registerCudaResource(); // TODO check this
+    mPBOs[mFrontBufferIdx]->BindPbo();
+    mPBOs[mFrontBufferIdx]->Allocate( byteCount );
+    mPBOs[mFrontBufferIdx]->RegisterCudaResource(); // TODO check this
 
     // initialize front buffer
-    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
+    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->MapPboBuffer();
     std::fill( pixelBuffer, pixelBuffer + byteCount, 0 );
-    mPBOs[mFrontBufferIdx]->unmapPboBuffer();
+    mPBOs[mFrontBufferIdx]->UnmapPboBuffer();
 
     // update texture from front buffer
-    mTextures.back()->bind();
-    mTextures.back()->createFromPBO();
-    mTextures.back()->unbind();
-    mPBOs[mFrontBufferIdx]->unbindPbo();
+    mTextures.back()->Bind();
+    mTextures.back()->CreateFromPBO();
+    mTextures.back()->Unbind();
+    mPBOs[mFrontBufferIdx]->UnbindPbo();
   }
 
   // create pixel grid checkerboard texture
@@ -408,13 +387,13 @@ void GLCanvas::CreateTextures()
     const uint8_t backgroundColor = 20;
     const uint8_t darkForegroundColor = 30;
     const uint8_t lightForegroundColor = 50;
-    const auto pixelCount = mTextures.back()->width() * mTextures.back()->height();
+    const auto pixelCount = mTextures.back()->Width() * mTextures.back()->Height();
     const auto byteCount = pixelCount * 4ull; // TODO no need for RGBA here
 
     std::unique_ptr<uint8_t[]> pixelBuffer = std::make_unique<uint8_t[]>( byteCount );
-    for ( uint32_t j = 0; j < mTextures.back()->height(); ++j )
+    for ( uint32_t j = 0; j < mTextures.back()->Height(); ++j )
     {
-      for ( uint32_t i = 0; i < mTextures.back()->width(); ++i )
+      for ( uint32_t i = 0; i < mTextures.back()->Width(); ++i )
       {
         const bool isGridPixel = ( ( ( i & 0x1 ) == 0 ) ^ ( ( j & 0x1 ) == 0 ) );
         uint8_t color = isGridPixel ? darkForegroundColor : backgroundColor;
@@ -423,7 +402,7 @@ void GLCanvas::CreateTextures()
           color = lightForegroundColor;
         }
 
-        const auto offset = i * 4ull + j * 4ull * mTextures.back()->width();
+        const auto offset = i * 4ull + j * 4ull * mTextures.back()->Width();
         pixelBuffer[offset + 0] = color;
         pixelBuffer[offset + 1] = color;
         pixelBuffer[offset + 2] = color;
@@ -431,15 +410,15 @@ void GLCanvas::CreateTextures()
       }
     }
 
-    mTextures.back()->bind();
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mTextures.back()->width(), mTextures.back()->height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer.get() );
-    mTextures.back()->unbind();
+    mTextures.back()->Bind();
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mTextures.back()->Width(), mTextures.back()->Height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer.get() );
+    mTextures.back()->Unbind();
   }
 
   std::stringstream ss;
-  ss << " Texture with dimensions " << mTextures.front()->width() << "x" << mTextures.front()->height() << " created";
+  ss << " Texture with dimensions " << mTextures.front()->Width() << "x" << mTextures.front()->Height() << " created";
   dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  logger::Logger::instance() << "Creating texture with size " << mTextures.front()->width() << "x" << mTextures.front()->height() << "\n";
+  logger::Logger::Instance() << "Creating texture with size " << mTextures.front()->Width() << "x" << mTextures.front()->Height() << "\n";
 }
 
 math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
@@ -455,9 +434,9 @@ math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
 
 math::ivec2 GLCanvas::WorldToImage( const math::vec2& worldSpacePoint )
 {
-  const float x( worldSpacePoint.x / mQuadSize * mTextures.front()->width() );
-  const float y( -worldSpacePoint.y / mQuadSize * mTextures.front()->height() + mTextures.front()->height() );  // texture`s and world`s y are in the opposite order
-  if ( x < 0.0f || x >= static_cast<float>( mTextures.front()->width() ) || y < 0.0f || y >= static_cast<float>( mTextures.front()->height() ) )
+  const float x( worldSpacePoint.x / mQuadSize * mTextures.front()->Width() );
+  const float y( -worldSpacePoint.y / mQuadSize * mTextures.front()->Height() + mTextures.front()->Height() );  // texture`s and world`s y are in the opposite order
+  if ( x < 0.0f || x >= static_cast<float>( mTextures.front()->Width() ) || y < 0.0f || y >= static_cast<float>( mTextures.front()->Height() ) )
   {
     return math::ivec2( -1, -1 );
   }
@@ -469,15 +448,15 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
   try
   {
     // calculate updateable pixel region coordinates
-    int32_t tox = pixel.x - ( mDrawPattern.width() / 2.0f ) + 0.5f;
-    int32_t toy = pixel.y - ( mDrawPattern.height() / 2.0f ) + 0.5f;
-    uint32_t pw = mDrawPattern.width();
-    uint32_t ph = mDrawPattern.height();
+    int32_t tox = pixel.x - ( mDrawPattern.Width() / 2.0f ) + 0.5f;
+    int32_t toy = pixel.y - ( mDrawPattern.Height() / 2.0f ) + 0.5f;
+    uint32_t pw = mDrawPattern.Width();
+    uint32_t ph = mDrawPattern.Height();
 
     uint32_t rxmin = std::max( tox, 0 );
     uint32_t rymin = std::max( toy, 0 );
-    uint32_t rxmax = std::min( tox + mDrawPattern.width(), mTextures.front()->width() );
-    uint32_t rymax = std::min( toy + mDrawPattern.height(), mTextures.front()->height() );
+    uint32_t rxmax = std::min( tox + mDrawPattern.Width(), mTextures.front()->Width() );
+    uint32_t rymax = std::min( toy + mDrawPattern.Height(), mTextures.front()->Height() );
 
     uint32_t pox = 0;
     uint32_t poy = 0;
@@ -491,8 +470,8 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     }
 
     // update pixels in front PBO
-    mPBOs[mFrontBufferIdx]->bindPbo();
-    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
+    mPBOs[mFrontBufferIdx]->BindPbo();
+    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->MapPboBuffer();
 
     uint32_t pcx = pox;
     uint32_t pcy = poy;
@@ -500,8 +479,8 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     {
       for ( uint32_t px = rxmin; px < rxmax; ++px )
       {
-        const uint64_t offset = px * 4ull + py * 4ull * mTextures.front()->width();
-        if ( mDrawPattern.at( pcx, pcy ) )
+        const uint64_t offset = px * 4ull + py * 4ull * mTextures.front()->Width();
+        if ( mDrawPattern.At( pcx, pcy ) )
         {
           pixelBuffer[offset + 0] = mCurrentDrawingColor.x;
           pixelBuffer[offset + 1] = mCurrentDrawingColor.y;
@@ -513,13 +492,13 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
       pcx = pox;
     }
 
-    mPBOs[mFrontBufferIdx]->unmapPboBuffer();
+    mPBOs[mFrontBufferIdx]->UnmapPboBuffer();
 
     // update texture region from front PBO
-    mTextures.front()->bind();
-    mTextures.front()->updateFromPBO( rxmin, rymin, rxmax - rxmin, rymax - rymin );
-    mTextures.front()->unbind();
-    mPBOs[mFrontBufferIdx]->unbindPbo();
+    mTextures.front()->Bind();
+    mTextures.front()->UpdateFromPBO( rxmin, rymin, rxmax - rxmin, rymax - rymin );
+    mTextures.front()->Unbind();
+    mPBOs[mFrontBufferIdx]->UnbindPbo();
   }
   catch ( const std::exception& e )
   {
@@ -532,17 +511,17 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
 void GLCanvas::Reset()
 {
   // reset pixels in the front buffer
-  mPBOs[mFrontBufferIdx]->mapCudaResource();
-  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-  RunFillKernel( mappedPtr, mSecondaryColor.x, mTextures.front()->width(), mTextures.front()->height() );
-  mPBOs[mFrontBufferIdx]->unmapCudaResource();
+  mPBOs[mFrontBufferIdx]->MapCudaResource();
+  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
+  RunFillKernel( mappedPtr, mSecondaryColor.x, mTextures.front()->Width(), mTextures.front()->Height() );
+  mPBOs[mFrontBufferIdx]->UnmapCudaResource();
 
   // update texture from the front buffer
-  mPBOs[mFrontBufferIdx]->bindPbo();
-  mTextures.front()->bind();
-  mTextures.front()->updateFromPBO();
-  mTextures.front()->bind();
-  mPBOs[mFrontBufferIdx]->unbindPbo();
+  mPBOs[mFrontBufferIdx]->BindPbo();
+  mTextures.front()->Bind();
+  mTextures.front()->UpdateFromPBO();
+  mTextures.front()->Bind();
+  mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
 }
@@ -550,45 +529,45 @@ void GLCanvas::Reset()
 void GLCanvas::Random()
 {
   // reset pixels in the front buffer
-  mPBOs[mFrontBufferIdx]->mapCudaResource();
-  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+  mPBOs[mFrontBufferIdx]->MapCudaResource();
+  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
 
-  RunRandomKernel( mappedPtr, mPrimaryColor.x, mSecondaryColor.x, 0.9f, mTextures.front()->width(), mTextures.front()->height() );
+  RunRandomKernel( mappedPtr, mPrimaryColor.x, mSecondaryColor.x, 0.9f, mTextures.front()->Width(), mTextures.front()->Height() );
 
-  mPBOs[mFrontBufferIdx]->unmapCudaResource();
+  mPBOs[mFrontBufferIdx]->UnmapCudaResource();
 
   // update texture from the front buffer
-  mPBOs[mFrontBufferIdx]->bindPbo();
-  mTextures.front()->bind();
-  mTextures.front()->updateFromPBO();
-  mTextures.front()->bind();
-  mPBOs[mFrontBufferIdx]->unbindPbo();
+  mPBOs[mFrontBufferIdx]->BindPbo();
+  mTextures.front()->Bind();
+  mTextures.front()->UpdateFromPBO();
+  mTextures.front()->Bind();
+  mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
 }
 
 void GLCanvas::RotatePattern()
 {
-  mDrawPattern.rotate();
+  mDrawPattern.Rotate();
 }
 
 void GLCanvas::Step()
 {
-  mPBOs[mFrontBufferIdx]->mapCudaResource();
-  mPBOs[mBackBufferIdx]->mapCudaResource();
-  uint8_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-  uint8_t* mappedBackPtr = mPBOs[mBackBufferIdx]->getCudaMappedPointer();
-  RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->width(), mTextures.front()->height() );
-  mPBOs[mFrontBufferIdx]->unmapCudaResource();
-  mPBOs[mBackBufferIdx]->unmapCudaResource();
+  mPBOs[mFrontBufferIdx]->MapCudaResource();
+  mPBOs[mBackBufferIdx]->MapCudaResource();
+  uint8_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
+  uint8_t* mappedBackPtr = mPBOs[mBackBufferIdx]->GetCudaMappedPointer();
+  RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->Width(), mTextures.front()->Height() );
+  mPBOs[mFrontBufferIdx]->UnmapCudaResource();
+  mPBOs[mBackBufferIdx]->UnmapCudaResource();
 
   std::swap( mFrontBufferIdx, mBackBufferIdx );
 
-  mPBOs[mFrontBufferIdx]->bindPbo();
-  mTextures.front()->bind();
-  mTextures.front()->updateFromPBO();
-  mTextures.front()->unbind();
-  mPBOs[mFrontBufferIdx]->unbindPbo();
+  mPBOs[mFrontBufferIdx]->BindPbo();
+  mTextures.front()->Bind();
+  mTextures.front()->UpdateFromPBO();
+  mTextures.front()->Unbind();
+  mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
 }
@@ -632,26 +611,26 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
   glClearColor( 0.1f, 0.1f, 0.1f, 1.0f );
   glClear( GL_COLOR_BUFFER_BIT );
 
-  glBindVertexArray( mVao );
   glUseProgram( mShaderProgram );
 
   const math::mat4 vpMatrix = mProjectionMatrix * mViewMatrix;
   const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer
   glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
 
-  mTextures.front()->bindTextureUnit( 0 );
-  mTextures.back()->bindTextureUnit( 1 );
+  mMeshes.front()->Bind();
+  mTextures.front()->BindTextureUnit( 0 );
+  mTextures.back()->BindTextureUnit( 1 );
 
   glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // TODO do it nicer
   glUniform1i( glGetUniformLocation( mShaderProgram, "checkerboardData" ), 1 ); // TODO do it nicer
   glUniform1i( glGetUniformLocation( mShaderProgram, "isCheckerboard" ), mDrawPixelGrid ? 1 : 0 ); // TODO do it nicer
 
-  glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );  // 6 = index count
+  mMeshes.front()->Render();
 
-  mTextures.front()->unbindTextureUnit();
-  mTextures.back()->unbindTextureUnit();
+  mTextures.front()->UnbindTextureUnit();
+  mTextures.back()->UnbindTextureUnit();
+  mMeshes.front()->Unbind();
 
-  glBindVertexArray( 0 );
   glUseProgram( 0 );
 
   SwapBuffers();

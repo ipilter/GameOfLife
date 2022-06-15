@@ -20,37 +20,37 @@ Texture::~Texture()
   glDeleteTextures( 1, &mId );
 }
 
-void Texture::bind()
+void Texture::Bind()
 {
   glBindTexture( GL_TEXTURE_2D, mId );
 }
 
-void Texture::unbind()
+void Texture::Unbind()
 {
   glBindTexture( GL_TEXTURE_2D, 0 );
 }
 
-void Texture::bindTextureUnit( const uint32_t unitId )
+void Texture::BindTextureUnit( const uint32_t unitId )
 {
   glBindTextureUnit( unitId, mId );
 }
 
-void Texture::unbindTextureUnit()
+void Texture::UnbindTextureUnit()
 {
   glBindTextureUnit( 0, 0 );
 }
 
-void Texture::createFromPBO()
+void Texture::CreateFromPBO()
 {
   glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mWidth, mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
 }
 
-void Texture::updateFromPBO()
+void Texture::UpdateFromPBO()
 {
   glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
 }
 
-void Texture::updateFromPBO( uint32_t regionPosX, uint32_t regionPosY, uint32_t regionWidth, uint32_t regionHeight )
+void Texture::UpdateFromPBO( uint32_t regionPosX, uint32_t regionPosY, uint32_t regionWidth, uint32_t regionHeight )
 {
   glPixelStorei( GL_UNPACK_ROW_LENGTH, mWidth );
   glTexSubImage2D( GL_TEXTURE_2D, 0
@@ -61,12 +61,12 @@ void Texture::updateFromPBO( uint32_t regionPosX, uint32_t regionPosY, uint32_t 
   glPixelStorei( GL_UNPACK_ROW_LENGTH, 0 );
 }
 
-uint32_t Texture::width() const
+uint32_t Texture::Width() const
 {
   return mWidth;
 }
 
-uint32_t Texture::height() const
+uint32_t Texture::Height() const
 {
   return mHeight;
 }

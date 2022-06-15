@@ -56,6 +56,9 @@
     <ClInclude Include="PixelBufferObject.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader.frag">
@@ -88,6 +91,9 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="PixelBufferObject.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>

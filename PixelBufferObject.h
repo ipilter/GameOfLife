@@ -14,19 +14,19 @@ public:
   PixelBufferObject();
   ~PixelBufferObject();
 
-  void allocate( uint32_t byteCount );
+  void Allocate( uint32_t byteCount );
 
-  void bindPbo();
-  void unbindPbo();
+  void BindPbo();
+  void UnbindPbo();
 
-  uint8_t* mapPboBuffer();
-  void unmapPboBuffer();
+  uint8_t* MapPboBuffer();
+  void UnmapPboBuffer();
 
   // cuda
-  void registerCudaResource();
-  void mapCudaResource();
-  void unmapCudaResource();
-  uint8_t* getCudaMappedPointer();
+  void RegisterCudaResource();
+  void MapCudaResource();
+  void UnmapCudaResource();
+  uint8_t* GetCudaMappedPointer();
 
 private:
   uint32_t mPboId = 0;

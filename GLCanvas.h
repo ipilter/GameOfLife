@@ -10,6 +10,7 @@
 #include "Pattern.h"
 #include "Texture.h"
 #include "PixelBufferObject.h"
+#include "Mesh.h"
 
 class GLCanvas : public wxGLCanvas
 {
@@ -96,9 +97,7 @@ private:
   uint32_t mTexturePatternSize;
 
   // mesh
-  uint32_t mVbo = 0;
-  uint32_t mIbo = 0;
-  uint32_t mVao = 0;
+  std::vector<Mesh::Ptr> mMeshes;
 
   // textures
   std::vector<Texture::Ptr> mTextures;

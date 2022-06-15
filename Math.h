@@ -23,15 +23,14 @@ using vec4 = glm::vec4;
 
 using mat4 = glm::mat4;
 
-inline float random()
+inline float Random()
 {
   static auto r = std::bind(  std::uniform_real_distribution<float>{ 0, 1 }, std::default_random_engine( std::random_device()() ) );
   return r();
-  //return std::rand() / static_cast<float>( RAND_MAX );
 }
 
 template<class T = float>
-inline T random( const T min, const T max )
+inline T Random( const T min, const T max )
 {
   return min + static_cast<T>( std::rand() % ( max - min + 1 ) );
 }
@@ -42,17 +41,17 @@ inline T random( const T min, const T max )
 //          (a2-a1)
 //
 template<class From, class To = From>
-class range_mapper
+class RangeMapper
 {
 public:
-  range_mapper( const From a1, const From a2, const To b1, const To b2 )
+  RangeMapper( const From a1, const From a2, const To b1, const To b2 )
     : m_a1( a1 )
     , m_a2( a2 )
     , m_b1( b1 )
     , m_b2( b2 )
   {}
 public:
-  To map( const From s ) const
+  To Map( const From s ) const
   {
     From a_norm( m_a2 - m_a1 );
     if ( a_norm == 0 )

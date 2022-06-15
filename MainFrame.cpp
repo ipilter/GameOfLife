@@ -16,7 +16,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
 {
   try
   {
-    logger::Logger::instance() << __FUNCTION__ << "\n";
+    logger::Logger::Instance() << __FUNCTION__ << "\n";
 
     auto* mainPanel = new wxPanel( this, wxID_ANY );
     mLogTextBox = new wxTextCtrl( mainPanel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE );
@@ -85,31 +85,32 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
 
     for ( uint32_t idx = 0; idx < mGLCanvas->GetPatternCount(); ++idx )
     {
-      mPatternComboBox->Append( mGLCanvas->GetPattern( idx ).name() );
+      mPatternComboBox->Append( mGLCanvas->GetPattern( idx ).GetName() );
     }
     mPatternComboBox->SetSelection( 0 );
     mGLCanvas->SetCurrentPattern( 0 );
   }
   catch ( const std::exception& e )
   {
-    logger::Logger::instance() << "MainFrame construction error: " << e.what() << "\n";
+    logger::Logger::Instance() << "MainFrame construction error: " << e.what() << "\n";
   }
   
   std::stringstream ss;
   ss << "GLCanvas window size: " << math::vec2( GetSize().GetWidth(), GetSize().GetHeight() );
   AddLogMessage( ss.str() );
 
-  logger::Logger::instance() << ss.str() << "\n";
+  logger::Logger::Instance() << ss.str() << "\n";
 }
 
 MainFrame::~MainFrame()
 {
-  logger::Logger::instance() << __FUNCTION__ << "\n";
+  logger::Logger::Instance() << __FUNCTION__ << "\n";
 }
 
 void MainFrame::AddLogMessage( const std::string& msg )
 {
   mLogTextBox->WriteText( ( msg + "\n" ) );
+  logger::Logger::Instance() << msg << "\n";
 }
 
 void MainFrame::OnStartButton( wxCommandEvent& /*event*/ )

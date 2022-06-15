@@ -10,11 +10,11 @@ class TimerImpl
 public:
   TimerImpl();
 
-  void start();
-  void stop();
+  void Start();
+  void Stop();
 
 public:
-  double us( void );
+  double Us( void );
 
 private:
   double m_start_time;
@@ -25,7 +25,6 @@ private:
   LARGE_INTEGER m_begin;
   LARGE_INTEGER m_end;
 };
-
 
 TimerImpl::TimerImpl()
   : m_start_time( 0 )
@@ -40,19 +39,19 @@ TimerImpl::TimerImpl()
   m_end.QuadPart = 0;
 }
 
-void TimerImpl::start()
+void TimerImpl::Start()
 {
   m_stopped = false;
   QueryPerformanceCounter( &m_begin );
 }
 
-void TimerImpl::stop()
+void TimerImpl::Stop()
 {
   QueryPerformanceCounter( &m_end );
   m_stopped = true;
 }
 
-double TimerImpl::us( void )
+double TimerImpl::Us( void )
 {
   if ( !m_stopped )
     QueryPerformanceCounter( &m_end );
@@ -68,27 +67,27 @@ Timer::Timer()
   : m_pImpl( new detail::TimerImpl() )
 {}
 
-void Timer::Timer::start()
+void Timer::Timer::Start()
 {
-  m_pImpl->start();
+  m_pImpl->Start();
 }
 
-void Timer::Timer::stop()
+void Timer::Timer::Stop()
 {
-  m_pImpl->stop();
+  m_pImpl->Stop();
 }
 
-double Timer::us( void )
+double Timer::Us( void )
 {
-  return m_pImpl->us();
+  return m_pImpl->Us();
 }
 
-double Timer::ms( void )
+double Timer::Ms( void )
 {
-  return m_pImpl->us() * 0.001;
+  return m_pImpl->Us() * 0.001;
 }
 
-double Timer::s( void )
+double Timer::S( void )
 {
-  return m_pImpl->us() * 0.000001;
+  return m_pImpl->Us() * 0.000001;
 }

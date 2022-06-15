@@ -9,12 +9,12 @@
 
 #include "Kernel.cuh"
 
-__device__ const uint8_t& max( const uint8_t& a, const uint8_t& b )
+__device__ const uint8_t& Max( const uint8_t& a, const uint8_t& b )
 {
   return a >= b ? a : b;
 }
 
-__device__ uint8_t getValue( uint8_t* buffer, int32_t x, int32_t y, uint32_t width, uint32_t height )
+__device__ uint8_t GetValue( uint8_t* buffer, int32_t x, int32_t y, uint32_t width, uint32_t height )
 {
   const int32_t rx = x < 0 ? width - 1 : x >= width ? 0 : x;
   const int32_t ry = y < 0 ? height - 1 : y >= height ? 0 : y;
@@ -36,15 +36,15 @@ __global__ void StepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, const uin
     return;
   }
 
-  const  uint8_t current = (getValue( frontBuffer, x, y, width, height ) == 255 ? 1 : 0);
-  const  uint32_t sum = (getValue( frontBuffer, x-1, y-1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( frontBuffer,   x, y-1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( frontBuffer, x+1, y-1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( frontBuffer, x-1,   y, width, height ) == 255 ? 1 : 0) +
-                        (getValue( frontBuffer, x+1,   y, width, height ) == 255 ? 1 : 0) +
-                        (getValue( frontBuffer, x-1, y+1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( frontBuffer,   x, y+1, width, height ) == 255 ? 1 : 0) +
-                        (getValue( frontBuffer, x+1, y+1, width, height ) == 255 ? 1 : 0);
+  const  uint8_t current = (GetValue( frontBuffer, x, y, width, height ) == 255 ? 1 : 0);
+  const  uint32_t sum = (GetValue( frontBuffer, x-1, y-1, width, height ) == 255 ? 1 : 0) +
+                        (GetValue( frontBuffer,   x, y-1, width, height ) == 255 ? 1 : 0) +
+                        (GetValue( frontBuffer, x+1, y-1, width, height ) == 255 ? 1 : 0) +
+                        (GetValue( frontBuffer, x-1,   y, width, height ) == 255 ? 1 : 0) +
+                        (GetValue( frontBuffer, x+1,   y, width, height ) == 255 ? 1 : 0) +
+                        (GetValue( frontBuffer, x-1, y+1, width, height ) == 255 ? 1 : 0) +
+                        (GetValue( frontBuffer,   x, y+1, width, height ) == 255 ? 1 : 0) +
+                        (GetValue( frontBuffer, x+1, y+1, width, height ) == 255 ? 1 : 0);
 
   const uint8_t newState = mDecideData[current * 9 + sum] > 0 ? 255 : 0;
   const uint32_t offset = x * 4 + width * y * 4;
@@ -101,7 +101,7 @@ __global__ void RandomKernel( uint8_t* buffer, const uint32_t width, const uint3
   }
 
   const size_t offset = x * 4ull + width * y * 4ull;
-  v = max(buffer[offset + 0], v);
+  v = Max(buffer[offset + 0], v);
 
   buffer[offset + 0] = v;
   buffer[offset + 1] = v;
@@ -114,17 +114,17 @@ cudaError_t RunFillKernel(uint8_t* buffer, const uint8_t value, const uint32_t w
   const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
                        , (height + blockSize.y - 1) / blockSize.y ); // number of blocks in the grid
 
-  cudaEvent_t start, stop;
-  cudaEventCreate( &start );
-  cudaEventCreate( &stop );
-
-  cudaEventRecord( start, 0 );
-  FillKernel<<<gridSize, blockSize>>> ( buffer, width, height, value );
-  cudaEventRecord( stop, 0 );
-  cudaEventSynchronize( stop );
-
-  float time = 0.0f;
-  cudaEventElapsedTime( &time, start, stop );
+  //cudaEvent_t start, stop;
+  //cudaEventCreate( &start );
+  //cudaEventCreate( &stop );
+  //
+  //cudaEventRecord( start, 0 );
+  FillKernel<<<gridSize, blockSize>>>( buffer, width, height, value );
+  //cudaEventRecord( stop, 0 );
+  //cudaEventSynchronize( stop );
+  //
+  //float time = 0.0f;
+  //cudaEventElapsedTime( &time, start, stop );
 
   return cudaGetLastError();
 }
@@ -135,19 +135,17 @@ cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t w
   const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
                        , (height + blockSize.y - 1) / blockSize.y ); // number of blocks in the grid
 
-  cudaEvent_t start, stop;
-  cudaEventCreate( &start );
-  cudaEventCreate( &stop );
-
-  cudaEventRecord( start, 0 );
-  
-  StepKernel<<<gridSize, blockSize>>> ( frontBuffer, backBuffer, width, height );
-  
-  cudaEventRecord( stop, 0 );
-  cudaEventSynchronize( stop );
-
-  float time = 0.0f;
-  cudaEventElapsedTime( &time, start, stop );
+  //cudaEvent_t start, stop;
+  //cudaEventCreate( &start );
+  //cudaEventCreate( &stop );
+  //
+  //cudaEventRecord( start, 0 );
+  StepKernel<<<gridSize, blockSize>>>( frontBuffer, backBuffer, width, height );
+  //cudaEventRecord( stop, 0 );
+  //cudaEventSynchronize( stop );
+  //
+  //float time = 0.0f;
+  //cudaEventElapsedTime( &time, start, stop );
   return cudaGetLastError();
 }
 
@@ -161,8 +159,8 @@ cudaError_t RunRandomKernel( uint8_t* buffer, const uint8_t living, const uint8_
   curandState_t* states = nullptr;
   cudaMalloc((void**) &states, width * height * sizeof(curandState_t));
 
-  InitRandom<<<gridSize, blockSize>>>(time(0), width, height, states);
-  RandomKernel<<<gridSize, blockSize>>> ( buffer, width, height, living, dead, prob, states );
+  InitRandom<<<gridSize, blockSize>>>( static_cast<uint32_t>( time( nullptr ) ), width, height, states );
+  RandomKernel<<<gridSize, blockSize>>>( buffer, width, height, living, dead, prob, states );
 
   cudaFree( states );
 
