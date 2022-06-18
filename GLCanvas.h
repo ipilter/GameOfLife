@@ -126,7 +126,7 @@ private:
 
   // patterns
   std::vector<Pattern::Ptr> mDrawPatterns;
-  Pattern mDrawPattern;
+  Pattern mDrawPattern; // current patern used by SetPixel. Copied as it can be rotated
   bool mDrawPixelGrid = false;
 
   // step timer

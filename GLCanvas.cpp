@@ -259,22 +259,62 @@ void GLCanvas::InitializeGLEW()
 
 void GLCanvas::CreateGeometry()
 {
-  const float pixelPatternTexelSize = mTextureSize / static_cast<float>( mTexturePatternSize );
-  const std::vector<float> points = { 0.0f,      0.0f,       0.0f, 1.0f, 0.0,                   pixelPatternTexelSize // vtx bl
-                                     , mQuadSize, 0.0f,      1.0f, 1.0f, pixelPatternTexelSize, pixelPatternTexelSize // vtx br
-                                     , 0.0f,      mQuadSize, 0.0f, 0.0f, 0.0,                   0.0 // vtx tl
-                                     , mQuadSize, mQuadSize, 1.0f, 0.0f, pixelPatternTexelSize, 0.0 // vtx tr
-  };
+  // world quad
+  {
+    const std::vector<float> points = { 0.0f,      0.0f,       0.0f, 1.0f // vtx bl
+                                       , mQuadSize, 0.0f,      1.0f, 1.0f // vtx br
+                                       , 0.0f,      mQuadSize, 0.0f, 0.0f // vtx tl
+                                       , mQuadSize, mQuadSize, 1.0f, 0.0f // vtx tr
+    };
 
-  const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+    const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
 
-  // layout of data inside points array
-  const size_t stride = 6 * sizeof( float );
-  const size_t vertexOffset = 0;
-  const size_t worldTexelOffset = 2 * sizeof( float );
-  const size_t patternTexelOffset = 4 * sizeof( float );
+    // layout of data inside points array
+    const size_t stride = 4 * sizeof( float );
+    const size_t vertexOffset = 0;
+    const size_t texelOffset = 2 * sizeof( float );
 
-  mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, worldTexelOffset, patternTexelOffset ) );
+    mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) );
+  }
+
+  // pixel grid quad
+  {
+    const float pixelPatternTexelSize = mTextureSize / static_cast<float>( mTexturePatternSize );
+    const std::vector<float> points = { 0.0f,      0.0f,       0.0,                   pixelPatternTexelSize // vtx bl
+                                       , mQuadSize, 0.0f,      pixelPatternTexelSize, pixelPatternTexelSize // vtx br
+                                       , 0.0f,      mQuadSize, 0.0,                   0.0                   // vtx tl
+                                       , mQuadSize, mQuadSize, pixelPatternTexelSize, 0.0                   // vtx tr
+    };
+
+    const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+
+    // layout of data inside points array
+    const size_t stride = 4 * sizeof( float );
+    const size_t vertexOffset = 0;
+    const size_t texelOffset = 2 * sizeof( float );
+
+    mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) );
+  }
+
+  // pattern quads TODO
+  //{
+  //  const float pixelSize = 1.0f / mTextureSize;
+  //  const float patternSize = 3.0f; // 3x3 pixels
+  //  const float quadSize = pixelSize * patternSize;
+  //  const std::vector<float> points = { 0.0f,      0.0f,     0.0f, 1.0f // vtx bl
+  //                                     , quadSize, 0.0f,     1.0f, 1.0f // vtx br
+  //                                     , 0.0f,     quadSize, 0.0f, 0.0f // vtx tl
+  //                                     , quadSize, quadSize, 1.0f, 0.0f // vtx tr
+  //  };
+
+  //  const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+
+  //  // layout of data inside points array
+  //  const size_t stride = 4 * sizeof( float );
+  //  const size_t vertexOffset = 0;
+  //  const size_t texelOffset = 2 * sizeof( float );
+  //  mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) );
+  //}
 }
 
 void GLCanvas::CreateShaderProgram()
@@ -388,7 +428,7 @@ void GLCanvas::CreateTextures()
     const uint8_t darkForegroundColor = 30;
     const uint8_t lightForegroundColor = 50;
     const auto pixelCount = mTextures.back()->Width() * mTextures.back()->Height();
-    const auto byteCount = pixelCount * 4ull; // TODO no need for RGBA here
+    const auto byteCount = pixelCount * 4ull;
 
     std::unique_ptr<uint8_t[]> pixelBuffer = std::make_unique<uint8_t[]>( byteCount );
     for ( uint32_t j = 0; j < mTextures.back()->Height(); ++j )
@@ -406,19 +446,20 @@ void GLCanvas::CreateTextures()
         pixelBuffer[offset + 0] = color;
         pixelBuffer[offset + 1] = color;
         pixelBuffer[offset + 2] = color;
-        pixelBuffer[offset + 3] = 0;
+        pixelBuffer[offset + 3] = 255; // 255 = opaque 0 = transparent
       }
     }
 
     mTextures.back()->Bind();
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mTextures.back()->Width(), mTextures.back()->Height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer.get() );
+    mTextures.back()->CreateFromArray( pixelBuffer.get() );
     mTextures.back()->Unbind();
   }
+
+  // create pattern textures here
 
   std::stringstream ss;
   ss << " Texture with dimensions " << mTextures.front()->Width() << "x" << mTextures.front()->Height() << " created";
   dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  logger::Logger::Instance() << "Creating texture with size " << mTextures.front()->Width() << "x" << mTextures.front()->Height() << "\n";
 }
 
 math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
@@ -609,29 +650,76 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
   SetCurrent( *mContext );
 
   glClearColor( 0.1f, 0.1f, 0.1f, 1.0f );
+  //glEnable(GL_BLEND);
+  //glEnable(GL_DEPTH_TEST);
+  //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   glClear( GL_COLOR_BUFFER_BIT );
 
-  glUseProgram( mShaderProgram );
+  // draw pixel grid if needed
+  if ( mDrawPixelGrid )
+  {
+    glUseProgram( mShaderProgram );
+  
+    const math::mat4 vpMatrix( mProjectionMatrix * mViewMatrix );
+    const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
+    glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
+  
+    mMeshes[1]->Bind();
+    mTextures[1]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
+  
+    glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
+  
+    mMeshes[1]->Render();
+  
+    mTextures[1]->UnbindTextureUnit();
+    mMeshes[1]->Unbind();
+  
+    glUseProgram( 0 );
+  }
+  else
+  // draw world
+  {
+    glUseProgram( mShaderProgram );
+  
+    const math::mat4 vpMatrix( mProjectionMatrix * mViewMatrix );
+    const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
+    glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
+  
+    mMeshes[0]->Bind();
+    mTextures[0]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
+  
+    glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
+  
+    mMeshes[0]->Render();
+  
+    mTextures[0]->UnbindTextureUnit();
+    mMeshes[0]->Unbind();
+  
+    glUseProgram( 0 );
+  }
 
-  const math::mat4 vpMatrix = mProjectionMatrix * mViewMatrix;
-  const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer
-  glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
+  // draw current pattern
+  if ( false )
+  {
+    //glUseProgram( mShaderProgram );
 
-  mMeshes.front()->Bind();
-  mTextures.front()->BindTextureUnit( 0 );
-  mTextures.back()->BindTextureUnit( 1 );
+    //const math::mat4 vpMatrix = mProjectionMatrix * mViewMatrix;  // TODO model matrix will be needed to rotate the pattern quad!
+    //const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
+    //glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
 
-  glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // TODO do it nicer
-  glUniform1i( glGetUniformLocation( mShaderProgram, "checkerboardData" ), 1 ); // TODO do it nicer
-  glUniform1i( glGetUniformLocation( mShaderProgram, "isCheckerboard" ), mDrawPixelGrid ? 1 : 0 ); // TODO do it nicer
-
-  mMeshes.front()->Render();
-
-  mTextures.front()->UnbindTextureUnit();
-  mTextures.back()->UnbindTextureUnit();
-  mMeshes.front()->Unbind();
-
-  glUseProgram( 0 );
+    //mMeshes[0]->Bind();
+    //mTextures[0]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
+    //
+    //glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
+    //
+    //mMeshes[0]->Render();
+    //
+    //mTextures[0]->UnbindTextureUnit();
+    //mMeshes[0]->Unbind();
+    //
+    //glUseProgram( 0 );
+  }
 
   SwapBuffers();
 }

@@ -18,6 +18,7 @@ public:
   void BindTextureUnit( const uint32_t unitId );
   void UnbindTextureUnit();
 
+  void CreateFromArray( const uint8_t* array );
   void CreateFromPBO();
   void UpdateFromPBO();
   void UpdateFromPBO( uint32_t regionPosX, uint32_t regionPosY, uint32_t regionWidth, uint32_t regionHeight );

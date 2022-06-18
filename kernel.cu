@@ -65,6 +65,7 @@ __global__ void FillKernel( uint8_t* buffer, const uint32_t width, const uint32_
   buffer[offset + 0] = value;
   buffer[offset + 1] = value;
   buffer[offset + 2] = value;
+  buffer[offset + 3] = 255;
 }
 
 __global__ void InitRandom( unsigned int seed, const uint32_t width, const uint32_t height, curandState_t* states )
@@ -108,11 +109,11 @@ __global__ void RandomKernel( uint8_t* buffer, const uint32_t width, const uint3
   buffer[offset + 2] = v;
 }
 
-cudaError_t RunFillKernel(uint8_t* buffer, const uint8_t value, const uint32_t width, const uint32_t height)
+cudaError_t RunFillKernel( uint8_t* buffer, const uint8_t value, const uint32_t width, const uint32_t height )
 {
   const dim3 blockSize( 32, 32 );// number of threads per block along x/y-axis
-  const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
-                       , (height + blockSize.y - 1) / blockSize.y ); // number of blocks in the grid
+  const dim3 gridSize( ( width + blockSize.x - 1 ) / blockSize.x
+                       , ( height + blockSize.y - 1 ) / blockSize.y ); // number of blocks in the grid
 
   //cudaEvent_t start, stop;
   //cudaEventCreate( &start );

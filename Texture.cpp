@@ -40,6 +40,11 @@ void Texture::UnbindTextureUnit()
   glBindTextureUnit( 0, 0 );
 }
 
+void Texture::CreateFromArray( const uint8_t* array )
+{
+  glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mWidth, mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, array );
+}
+
 void Texture::CreateFromPBO()
 {
   glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mWidth, mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
