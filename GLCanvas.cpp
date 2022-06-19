@@ -26,6 +26,9 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   : wxGLCanvas( parent, id, attribList, pos, size, style, name, palette )
   , mQuadSize( 1.0f )
   , mTextureSize( textureSize )
+  , mPrimaryColor ( util::Color( 255, 255, 255 ) )
+  , mSecondaryColor ( util::Color( 0, 0, 0 ) )
+  , mCurrentDrawingColor ( util::Color( 255, 255, 255 ) ) // TODO index in an array instead
 {
   wxGLContextAttrs contextAttrs;
   contextAttrs.CoreProfile().OGLVersion( 4, 5 ).Robust().ResetIsolation().EndList();
@@ -87,98 +90,15 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   CreateShaderProgram();
   CreateTextures();
 
+  int32_t pboAlignment = -1;
+  glGetIntegerv(GL_UNPACK_ALIGNMENT, &pboAlignment);
+  logger::Logger::Instance() << "pbo alignment " << pboAlignment << "\n";
+
   // view
   mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 5.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
 
   // patterns
-  if ( std::filesystem::exists( "e:\\patterns.dat" ) )
-  {
-    std::ifstream patternsStream( "e:\\patterns.dat" );
-    size_t count = 0;
-    util::Read_t( patternsStream, count );
-    mDrawPatterns.resize( count );
-    for( auto i(0); i < count; ++i )
-    {
-      mDrawPatterns[i] = std::move( std::make_unique<Pattern>() );
-      mDrawPatterns[i]->Read( patternsStream );
-    }
-  }
-  else
-  {
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
-                                                                      1 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
-                                                                      0, 1, 0,
-                                                                      0, 0, 1,
-                                                                      1, 1, 1 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
-                                                                      0, 0, 1, 1, 0,
-                                                                      1, 1, 0, 1, 1,
-                                                                      1, 1, 1, 1, 0,
-                                                                      0, 1, 1, 0, 0 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Middleweight Spaceship", 6, 4, std::vector<bool> {
-                                                                      0, 0, 0, 1, 1, 0,
-                                                                      1, 1, 1, 0, 1, 1,
-                                                                      1, 1, 1, 1, 1, 0,
-                                                                      0, 1, 1, 1, 0, 0 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Heavyweight Spaceship", 7, 4, std::vector<bool> {
-                                                                      0, 0, 0, 0, 1, 1, 0,
-                                                                      1, 1, 1, 1, 0, 1, 1,
-                                                                      1, 1, 1, 1, 1, 1, 0,
-                                                                      0, 1, 1, 1, 1, 0, 0 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-                                                                      1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Unknown Ship", 34, 35, std::vector<bool> {
-                                                                      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,1,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      1,0,0,1,1,1,1,1,1,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,1,0,0,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      1,0,0,1,0,1,0,0,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,1,0,0,0,1,1,1,1,1,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,1,1,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,1,1,0,0,0,1,1,1,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,1,1,0,0,0,0,0,1,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0,0,1,0,0,1,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,0,0,0,0,1,1,0,0,1,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,0,1,1,0,1,0,0,1,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 } ) ) );
-  }
+  CreatePatterns();
 
   mStepTimer = std::make_unique<StepTimer>( this );
 }
@@ -201,22 +121,22 @@ GLCanvas::~GLCanvas()
   glDeleteProgram( mShaderProgram );
 }
 
-void GLCanvas::SetPrimaryColor( const math::uvec3& color )
+void GLCanvas::SetPrimaryColor( const uint32_t color )
 {
   mPrimaryColor = color;
 }
 
-const math::uvec3& GLCanvas::GetPrimaryColor() const
+const uint32_t GLCanvas::GetPrimaryColor() const
 {
   return mPrimaryColor;
 }
 
-void GLCanvas::SetSecondaryColor( const math::uvec3& color )
+void GLCanvas::SetSecondaryColor( const uint32_t color )
 {
   mSecondaryColor = color;
 }
 
-const math::uvec3& GLCanvas::GetSecondaryColor() const
+const uint32_t GLCanvas::GetSecondaryColor() const
 {
   return mSecondaryColor;
 }
@@ -396,7 +316,7 @@ void GLCanvas::CreateTextures()
     mTextures.push_back( std::make_unique<Texture>( mTextureSize, mTextureSize ) );
 
     const auto pixelCount = mTextures.front()->Width() * mTextures.front()->Height();
-    const auto byteCount = pixelCount * 4ull;
+    const auto byteCount = pixelCount * sizeof( uint32_t );
 
     // allocate PBO pixels
     mPBOs[mBackBufferIdx]->BindPbo();
@@ -409,8 +329,8 @@ void GLCanvas::CreateTextures()
     mPBOs[mFrontBufferIdx]->RegisterCudaResource(); // TODO check this
 
     // initialize front buffer
-    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->MapPboBuffer();
-    std::fill( pixelBuffer, pixelBuffer + byteCount, 0 );
+    uint32_t* devicePixelBufferPtr = mPBOs[mFrontBufferIdx]->MapPboBuffer(); // TODO no raw ptr
+    std::fill( devicePixelBufferPtr, devicePixelBufferPtr + pixelCount, util::Color() );
     mPBOs[mFrontBufferIdx]->UnmapPboBuffer();
 
     // update texture from front buffer
@@ -424,29 +344,26 @@ void GLCanvas::CreateTextures()
   {
     mTextures.push_back( std::make_unique<Texture>( mTexturePatternSize, mTexturePatternSize, GL_REPEAT ) );
 
-    const uint8_t backgroundColor = 20;
-    const uint8_t darkForegroundColor = 30;
-    const uint8_t lightForegroundColor = 50;
-    const auto pixelCount = mTextures.back()->Width() * mTextures.back()->Height();
-    const auto byteCount = pixelCount * 4ull;
+    const uint32_t pixelCount = mTextures.back()->Width() * mTextures.back()->Height();
+    std::unique_ptr<uint32_t[]> pixelBuffer = std::make_unique<uint32_t[]>( pixelCount );
 
-    std::unique_ptr<uint8_t[]> pixelBuffer = std::make_unique<uint8_t[]>( byteCount );
+    // TODO do on GPU instead
+    const uint32_t backgroundColor = util::Color( 20, 20, 20 );
+    const uint32_t darkForegroundColor = util::Color( 30, 30, 30 );
+    const uint32_t lightForegroundColor = util::Color( 50, 50, 50 );
     for ( uint32_t j = 0; j < mTextures.back()->Height(); ++j )
     {
       for ( uint32_t i = 0; i < mTextures.back()->Width(); ++i )
       {
         const bool isGridPixel = ( ( ( i & 0x1 ) == 0 ) ^ ( ( j & 0x1 ) == 0 ) );
-        uint8_t color = isGridPixel ? darkForegroundColor : backgroundColor;
+        uint32_t color = isGridPixel ? darkForegroundColor : backgroundColor;
         if ( isGridPixel && ( (i % 10 == 0) || (j % 10 == 0) ) )
         {
           color = lightForegroundColor;
         }
 
-        const auto offset = i * 4ull + j * 4ull * mTextures.back()->Width();
-        pixelBuffer[offset + 0] = color;
-        pixelBuffer[offset + 1] = color;
-        pixelBuffer[offset + 2] = color;
-        pixelBuffer[offset + 3] = 255; // 255 = opaque 0 = transparent
+        const uint32_t offset = i + j * mTextures.back()->Width();
+        pixelBuffer[offset] = color;
       }
     }
 
@@ -460,6 +377,98 @@ void GLCanvas::CreateTextures()
   std::stringstream ss;
   ss << " Texture with dimensions " << mTextures.front()->Width() << "x" << mTextures.front()->Height() << " created";
   dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
+}
+
+void GLCanvas::CreatePatterns()
+{
+  if ( std::filesystem::exists( "e:\\patterns.dat" ) )
+  {
+    std::ifstream patternsStream( "e:\\patterns.dat" );
+    size_t count = 0;
+    util::Read_t( patternsStream, count );
+    mDrawPatterns.resize( count );
+    for( auto i(0); i < count; ++i )
+    {
+      mDrawPatterns[i] = std::move( std::make_unique<Pattern>() );
+      mDrawPatterns[i]->Read( patternsStream );
+    }
+  }
+  else
+  {
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
+      1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
+      0, 1, 0,
+        0, 0, 1,
+        1, 1, 1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
+      0, 0, 1, 1, 0,
+        1, 1, 0, 1, 1,
+        1, 1, 1, 1, 0,
+        0, 1, 1, 0, 0 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Middleweight Spaceship", 6, 4, std::vector<bool> {
+      0, 0, 0, 1, 1, 0,
+        1, 1, 1, 0, 1, 1,
+        1, 1, 1, 1, 1, 0,
+        0, 1, 1, 1, 0, 0 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Heavyweight Spaceship", 7, 4, std::vector<bool> {
+      0, 0, 0, 0, 1, 1, 0,
+        1, 1, 1, 1, 0, 1, 1,
+        1, 1, 1, 1, 1, 1, 0,
+        0, 1, 1, 1, 1, 0, 0 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Unknown Ship", 34, 35, std::vector<bool> {
+      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,1,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        1,0,0,1,1,1,1,1,1,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,1,0,0,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        1,0,0,1,0,1,0,0,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,1,0,0,0,1,1,1,1,1,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,1,1,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,1,1,0,0,0,1,1,1,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,1,1,0,0,0,0,0,1,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0,0,1,0,0,1,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,0,0,0,0,1,1,0,0,1,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,0,1,1,0,1,0,0,1,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 } ) ) );
+  }
 }
 
 math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
@@ -512,7 +521,7 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
 
     // update pixels in front PBO
     mPBOs[mFrontBufferIdx]->BindPbo();
-    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->MapPboBuffer();
+    uint32_t* pixelBuffer = mPBOs[mFrontBufferIdx]->MapPboBuffer();
 
     uint32_t pcx = pox;
     uint32_t pcy = poy;
@@ -520,12 +529,10 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     {
       for ( uint32_t px = rxmin; px < rxmax; ++px )
       {
-        const uint64_t offset = px * 4ull + py * 4ull * mTextures.front()->Width();
+        const uint64_t offset = px + py * mTextures.front()->Width();
         if ( mDrawPattern.At( pcx, pcy ) )
         {
-          pixelBuffer[offset + 0] = mCurrentDrawingColor.x;
-          pixelBuffer[offset + 1] = mCurrentDrawingColor.y;
-          pixelBuffer[offset + 2] = mCurrentDrawingColor.z;
+          pixelBuffer[offset] = mCurrentDrawingColor;
         }
         ++pcx;
       }
@@ -553,8 +560,8 @@ void GLCanvas::Reset()
 {
   // reset pixels in the front buffer
   mPBOs[mFrontBufferIdx]->MapCudaResource();
-  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
-  RunFillKernel( mappedPtr, mSecondaryColor.x, mTextures.front()->Width(), mTextures.front()->Height() );
+  uint32_t* mappedPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
+  RunFillKernel( mappedPtr, mSecondaryColor, mTextures.front()->Width(), mTextures.front()->Height() );
   mPBOs[mFrontBufferIdx]->UnmapCudaResource();
 
   // update texture from the front buffer
@@ -571,9 +578,9 @@ void GLCanvas::Random()
 {
   // reset pixels in the front buffer
   mPBOs[mFrontBufferIdx]->MapCudaResource();
-  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
+  uint32_t* mappedPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
 
-  RunRandomKernel( mappedPtr, mPrimaryColor.x, mSecondaryColor.x, 0.9f, mTextures.front()->Width(), mTextures.front()->Height() );
+  RunRandomKernel( mappedPtr, 0.9f, mTextures.front()->Width(), mTextures.front()->Height(), mPrimaryColor, mSecondaryColor );
 
   mPBOs[mFrontBufferIdx]->UnmapCudaResource();
 
@@ -596,9 +603,9 @@ void GLCanvas::Step()
 {
   mPBOs[mFrontBufferIdx]->MapCudaResource();
   mPBOs[mBackBufferIdx]->MapCudaResource();
-  uint8_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
-  uint8_t* mappedBackPtr = mPBOs[mBackBufferIdx]->GetCudaMappedPointer();
-  RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->Width(), mTextures.front()->Height() );
+  uint32_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
+  uint32_t* mappedBackPtr = mPBOs[mBackBufferIdx]->GetCudaMappedPointer();
+  RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->Width(), mTextures.front()->Height(), mPrimaryColor, mSecondaryColor );
   mPBOs[mFrontBufferIdx]->UnmapCudaResource();
   mPBOs[mBackBufferIdx]->UnmapCudaResource();
 

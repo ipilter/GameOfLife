@@ -1,12 +1,11 @@
 #version 450 core
 
-uniform sampler2D textureData;
-
+uniform usampler2D textureData;
 in vec2 fUV;
 
-out vec4 fragColor;
+out uvec4 fragColor;
 
 void main()
 {
-  fragColor = texture ( textureData, fUV );
+  fragColor = texture( textureData, fUV);
 }

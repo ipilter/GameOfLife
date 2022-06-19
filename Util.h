@@ -7,6 +7,62 @@
 
 namespace util
 {
+namespace detail
+{
+constexpr std::uint32_t redBits  { 0x000000FF };
+constexpr std::uint32_t greenBits{ 0x0000FF00 };
+constexpr std::uint32_t blueBits { 0x00FF0000 };
+constexpr std::uint32_t alphaBits{ 0xFF000000 };
+
+// R: 0x000000FF
+// G: 0x0000FF00
+// B: 0x00FF0000
+// A: 0xFF000000
+union U
+{
+#ifdef _DEBUG
+  // TODO endiannes
+  const static uint32_t i = 1;
+  static_assert( ( i & 0x1 ) == 1 );
+#endif
+
+public:
+  explicit U( const uint32_t i )
+    : mInt( i )
+  {}
+  explicit U( const uint8_t r, const uint8_t g, const uint8_t b, const uint8_t a )
+  {
+    mChr[0] = r;
+    mChr[1] = g;
+    mChr[2] = b;
+    mChr[3] = a;
+  }
+  uint32_t Int() const
+  {
+    return mInt;
+  }
+  uint32_t Chr( const uint32_t& idx ) const
+  {
+    return mChr[idx];
+  }
+private:
+  uint32_t mInt;
+  uint8_t mChr[4];
+};
+
+} // ::detail
+
+inline uint8_t Component( const uint32_t& color, const uint32_t& idx )
+{
+  const detail::U u( color );
+  return u.Chr( idx ); // TODO alert system
+}
+
+inline uint32_t Color( const uint8_t r = 0, const uint8_t g = 0, const uint8_t b = 0, const uint8_t a = 255 )
+{
+  const detail::U u( r, g, b, a );
+  return u.Int();
+}
 
 template<class T>
 inline T FromString( const std::string& str )
@@ -85,7 +141,7 @@ inline void Read_t( std::ifstream& stream, std::string& str )
   std::copy_n( chars, count, std::back_inserter<std::string>( str ) );
 
   char dummy( 0 );
-  Read_t( stream, dummy );
+  Read_t( stream, dummy ); // TODO why is this. I`m sure it is needed but not remember why. /0 at the end of the cstr? Comment it !!
 }
 
 template<>
@@ -101,9 +157,6 @@ inline void Read_t( std::ifstream& stream, std::vector<bool>& array )
     Read_t( stream, v );
     array[i] = v;
   }
-
-  //char dummy( 0 );
-  //Read_t( stream, dummy );
 }
 
 }

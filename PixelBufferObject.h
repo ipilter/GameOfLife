@@ -19,14 +19,14 @@ public:
   void BindPbo();
   void UnbindPbo();
 
-  uint8_t* MapPboBuffer();
+  uint32_t* MapPboBuffer();
   void UnmapPboBuffer();
 
   // cuda
   void RegisterCudaResource();
   void MapCudaResource();
   void UnmapCudaResource();
-  uint8_t* GetCudaMappedPointer();
+  uint32_t* GetCudaMappedPointer();
 
 private:
   uint32_t mPboId = 0;

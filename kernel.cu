@@ -9,21 +9,43 @@
 
 #include "Kernel.cuh"
 
-__device__ const uint8_t& Max( const uint8_t& a, const uint8_t& b )
+__device__ const uint32_t& Max( const uint32_t& a, const uint32_t& b )
 {
   return a >= b ? a : b;
 }
 
-__device__ uint8_t GetValue( uint8_t* buffer, int32_t x, int32_t y, uint32_t width, uint32_t height )
+__device__ uint8_t Component( const uint32_t& color, const uint32_t& idx )
+{
+  switch ( idx )
+  {
+    case 0:
+      return static_cast<uint8_t>( ( color & 0x000000FF ) >> 0 );
+    case 1:
+      return static_cast<uint8_t>( ( color & 0x0000FF00 ) >> 8 );
+    case 2:
+      return static_cast<uint8_t>( ( color & 0x00FF0000 ) >> 16 );
+    case 3:
+      return static_cast<uint8_t>( ( color & 0xFF000000 ) >> 24 );
+    default:
+      return 0;
+  }
+}
+
+__device__ uint32_t Color( const uint8_t r = 0, const uint8_t g = 0, const uint8_t b = 0, const uint8_t a = 255 )
+{
+  return ( r << 0 ) | ( g << 8 ) | ( b << 16 ) | ( a << 24 );
+}
+
+__device__ uint32_t GetValue( uint32_t* buffer, int32_t x, int32_t y, uint32_t width, uint32_t height )
 {
   const int32_t rx = x < 0 ? width - 1 : x >= width ? 0 : x;
   const int32_t ry = y < 0 ? height - 1 : y >= height ? 0 : y;
-  return buffer[rx * 4 + ry * 4 * width]; // first component from BGRA
+  return buffer[rx + ry * width]; // RGBA
 }
 
-__global__ void StepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, const uint32_t width, const uint32_t height )
+__global__ void StepKernel( uint32_t* frontBuffer, uint32_t* backBuffer, const uint32_t width, const uint32_t height, const uint32_t livingColor, const uint32_t deadColor )
 {
-  const bool mDecideData[] = {
+  static const bool mDecideData[] = {
   //0  1  2  3  4  5  6  7  8    living neighbour count
     0, 0, 0, 1, 0, 0, 0, 0, 0,   // dead cell new state |  8
     0, 0, 1, 1, 0, 0, 0, 0, 0 }; // live cell new state | 12
@@ -36,24 +58,19 @@ __global__ void StepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, const uin
     return;
   }
 
-  const  uint8_t current = (GetValue( frontBuffer, x, y, width, height ) == 255 ? 1 : 0);
-  const  uint32_t sum = (GetValue( frontBuffer, x-1, y-1, width, height ) == 255 ? 1 : 0) +
-                        (GetValue( frontBuffer,   x, y-1, width, height ) == 255 ? 1 : 0) +
-                        (GetValue( frontBuffer, x+1, y-1, width, height ) == 255 ? 1 : 0) +
-                        (GetValue( frontBuffer, x-1,   y, width, height ) == 255 ? 1 : 0) +
-                        (GetValue( frontBuffer, x+1,   y, width, height ) == 255 ? 1 : 0) +
-                        (GetValue( frontBuffer, x-1, y+1, width, height ) == 255 ? 1 : 0) +
-                        (GetValue( frontBuffer,   x, y+1, width, height ) == 255 ? 1 : 0) +
-                        (GetValue( frontBuffer, x+1, y+1, width, height ) == 255 ? 1 : 0);
-
-  const uint8_t newState = mDecideData[current * 9 + sum] > 0 ? 255 : 0;
-  const uint32_t offset = x * 4 + width * y * 4;
-  backBuffer[offset + 0] = newState;
-  backBuffer[offset + 1] = newState;
-  backBuffer[offset + 2] = newState;
+  const uint32_t current = ( GetValue( frontBuffer, x, y, width, height ) == deadColor ? 0 : 1 );
+  const uint32_t sum = ( GetValue( frontBuffer, x - 1, y - 1, width, height ) == deadColor ? 0 : 1 ) +
+                       ( GetValue( frontBuffer, x    , y - 1, width, height ) == deadColor ? 0 : 1 ) +
+                       ( GetValue( frontBuffer, x + 1, y - 1, width, height ) == deadColor ? 0 : 1 ) +
+                       ( GetValue( frontBuffer, x - 1, y    , width, height ) == deadColor ? 0 : 1 ) +
+                       ( GetValue( frontBuffer, x + 1, y    , width, height ) == deadColor ? 0 : 1 ) +
+                       ( GetValue( frontBuffer, x - 1, y + 1, width, height ) == deadColor ? 0 : 1 ) +
+                       ( GetValue( frontBuffer, x    , y + 1, width, height ) == deadColor ? 0 : 1 ) +
+                       ( GetValue( frontBuffer, x + 1, y + 1, width, height ) == deadColor ? 0 : 1 );
+  backBuffer[x + width * y] = ( mDecideData[current * 9 + sum] ? livingColor : deadColor );
 }
 
-__global__ void FillKernel( uint8_t* buffer, const uint32_t width, const uint32_t height, const uint8_t value )
+__global__ void FillKernel( uint32_t* buffer, const uint32_t width, const uint32_t height, const uint32_t value )
 {
   const uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
   const uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -61,11 +78,8 @@ __global__ void FillKernel( uint8_t* buffer, const uint32_t width, const uint32_
   {
     return;
   }
-  const size_t offset = x * 4ull + width * y * 4ull;
-  buffer[offset + 0] = value;
-  buffer[offset + 1] = value;
-  buffer[offset + 2] = value;
-  buffer[offset + 3] = 255;
+  const size_t offset = x + width * y;
+  buffer[offset] = value;
 }
 
 __global__ void InitRandom( unsigned int seed, const uint32_t width, const uint32_t height, curandState_t* states )
@@ -85,7 +99,7 @@ __global__ void InitRandom( unsigned int seed, const uint32_t width, const uint3
                &states[x + y * width] );
 }
 
-__global__ void RandomKernel( uint8_t* buffer, const uint32_t width, const uint32_t height, const uint8_t living, const uint8_t dead, const float prob, curandState_t* states )
+__global__ void RandomKernel( uint32_t* buffer, const uint32_t width, const uint32_t height, const uint32_t livingColor, const uint32_t deadColor, const float prob, curandState_t* states )
 {
   const uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
   const uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -95,21 +109,16 @@ __global__ void RandomKernel( uint8_t* buffer, const uint32_t width, const uint3
   }
 
   const float r = curand_uniform( &states[x + y * width] );
-  uint8_t v = dead;
+  uint32_t v = deadColor;
   if ( r > prob )
   {
-    v = living;
+    v = livingColor;
   }
 
-  const size_t offset = x * 4ull + width * y * 4ull;
-  v = Max(buffer[offset + 0], v);
-
-  buffer[offset + 0] = v;
-  buffer[offset + 1] = v;
-  buffer[offset + 2] = v;
+  buffer[x + width * y + 0] = Max(v, buffer[x + width * y + 0]);
 }
 
-cudaError_t RunFillKernel( uint8_t* buffer, const uint8_t value, const uint32_t width, const uint32_t height )
+cudaError_t RunFillKernel( uint32_t* buffer, const uint32_t value, const uint32_t width, const uint32_t height )
 {
   const dim3 blockSize( 32, 32 );// number of threads per block along x/y-axis
   const dim3 gridSize( ( width + blockSize.x - 1 ) / blockSize.x
@@ -130,7 +139,7 @@ cudaError_t RunFillKernel( uint8_t* buffer, const uint8_t value, const uint32_t 
   return cudaGetLastError();
 }
 
-cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t width, uint32_t height )
+cudaError_t RunStepKernel( uint32_t* frontBuffer, uint32_t* backBuffer, uint32_t width, uint32_t height, const uint32_t livingColor, const uint32_t deadColor )
 {
   const dim3 blockSize( 32, 32 );// number of threads per block along x/y-axis
   const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
@@ -141,7 +150,7 @@ cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t w
   //cudaEventCreate( &stop );
   //
   //cudaEventRecord( start, 0 );
-  StepKernel<<<gridSize, blockSize>>>( frontBuffer, backBuffer, width, height );
+  StepKernel<<<gridSize, blockSize>>>( frontBuffer, backBuffer, width, height, livingColor, deadColor );
   //cudaEventRecord( stop, 0 );
   //cudaEventSynchronize( stop );
   //
@@ -150,7 +159,7 @@ cudaError_t RunStepKernel( uint8_t* frontBuffer, uint8_t* backBuffer, uint32_t w
   return cudaGetLastError();
 }
 
-cudaError_t RunRandomKernel( uint8_t* buffer, const uint8_t living, const uint8_t dead, const float prob, const uint32_t width, const uint32_t height )
+cudaError_t RunRandomKernel( uint32_t* buffer, const float prob, const uint32_t width, const uint32_t height, const uint32_t livingColor, const uint32_t deadColor )
 {
   const dim3 blockSize( 32, 32 );// number of threads per block along x/y-axis
   const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
@@ -161,7 +170,7 @@ cudaError_t RunRandomKernel( uint8_t* buffer, const uint8_t living, const uint8_
   cudaMalloc((void**) &states, width * height * sizeof(curandState_t));
 
   InitRandom<<<gridSize, blockSize>>>( static_cast<uint32_t>( time( nullptr ) ), width, height, states );
-  RandomKernel<<<gridSize, blockSize>>>( buffer, width, height, living, dead, prob, states );
+  RandomKernel<<<gridSize, blockSize>>>( buffer, width, height, livingColor, deadColor, prob, states );
 
   cudaFree( states );
 

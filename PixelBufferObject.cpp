@@ -45,9 +45,9 @@ void PixelBufferObject::UnbindPbo()
   mBound = false;
 }
 
-uint8_t* PixelBufferObject::MapPboBuffer()
+uint32_t* PixelBufferObject::MapPboBuffer()
 {
-  return reinterpret_cast<uint8_t*>( glMapBuffer( GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY ) );
+  return reinterpret_cast<uint32_t*>( glMapBuffer( GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY ) );
 }
 
 void PixelBufferObject::UnmapPboBuffer()
@@ -82,9 +82,9 @@ void PixelBufferObject::UnmapCudaResource()
   }
 }
 
-uint8_t* PixelBufferObject::GetCudaMappedPointer()
+uint32_t* PixelBufferObject::GetCudaMappedPointer()
 {
-  uint8_t* ptr = nullptr;
+  uint32_t* ptr = nullptr;
   size_t mapped_size = 0;
   cudaError_t err = cudaGraphicsResourceGetMappedPointer( reinterpret_cast<void**>( &ptr ), &mapped_size, mCudaResource );
   if ( err != cudaSuccess )
