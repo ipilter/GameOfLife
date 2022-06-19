@@ -27,7 +27,7 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   , mQuadSize( 1.0f )
   , mTextureSize( textureSize )
   , mPrimaryColor ( util::Color( 255, 255, 255 ) )
-  , mSecondaryColor ( util::Color( 0, 0, 0 ) )
+  , mSecondaryColor ( util::Color( 20, 20, 20 ) )
   , mCurrentDrawingColor ( util::Color( 255, 255, 255 ) ) // TODO index in an array instead
 {
   wxGLContextAttrs contextAttrs;
@@ -119,6 +119,8 @@ GLCanvas::~GLCanvas()
   glDeleteShader( mVertexShader );
   glDeleteShader( mFragmentxShader );
   glDeleteProgram( mShaderProgram );
+  
+  FreeCudaRandomStates();
 }
 
 void GLCanvas::SetPrimaryColor( const uint32_t color )
@@ -330,7 +332,7 @@ void GLCanvas::CreateTextures()
 
     // initialize front buffer
     uint32_t* devicePixelBufferPtr = mPBOs[mFrontBufferIdx]->MapPboBuffer(); // TODO no raw ptr
-    std::fill( devicePixelBufferPtr, devicePixelBufferPtr + pixelCount, util::Color() );
+    std::fill( devicePixelBufferPtr, devicePixelBufferPtr + pixelCount, mSecondaryColor );
     mPBOs[mFrontBufferIdx]->UnmapPboBuffer();
 
     // update texture from front buffer
@@ -348,9 +350,10 @@ void GLCanvas::CreateTextures()
     std::unique_ptr<uint32_t[]> pixelBuffer = std::make_unique<uint32_t[]>( pixelCount );
 
     // TODO do on GPU instead
-    const uint32_t backgroundColor = util::Color( 20, 20, 20 );
-    const uint32_t darkForegroundColor = util::Color( 30, 30, 30 );
-    const uint32_t lightForegroundColor = util::Color( 50, 50, 50 );
+    const uint8_t alpha = 255;
+    const uint32_t backgroundColor = util::Color( 20, 20, 20, alpha );
+    const uint32_t darkForegroundColor = util::Color( 30, 30, 30, alpha );
+    const uint32_t lightForegroundColor = util::Color( 50, 50, 50, alpha );
     for ( uint32_t j = 0; j < mTextures.back()->Height(); ++j )
     {
       for ( uint32_t i = 0; i < mTextures.back()->Width(); ++i )
@@ -656,35 +659,11 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
 {
   SetCurrent( *mContext );
 
-  glClearColor( 0.1f, 0.1f, 0.1f, 1.0f );
-  //glEnable(GL_BLEND);
-  //glEnable(GL_DEPTH_TEST);
-  //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+  glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+  glEnable( GL_BLEND );
+  glBlendEquation( GL_MAX );  // TODO background must be black. Rethink this
   glClear( GL_COLOR_BUFFER_BIT );
 
-  // draw pixel grid if needed
-  if ( mDrawPixelGrid )
-  {
-    glUseProgram( mShaderProgram );
-  
-    const math::mat4 vpMatrix( mProjectionMatrix * mViewMatrix );
-    const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
-    glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
-  
-    mMeshes[1]->Bind();
-    mTextures[1]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
-  
-    glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
-  
-    mMeshes[1]->Render();
-  
-    mTextures[1]->UnbindTextureUnit();
-    mMeshes[1]->Unbind();
-  
-    glUseProgram( 0 );
-  }
-  else
   // draw world
   {
     glUseProgram( mShaderProgram );
@@ -696,13 +675,35 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
     mMeshes[0]->Bind();
     mTextures[0]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
   
-    glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
+    glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // TODO textureData at location 0. Should the Mesh do this instead
   
     mMeshes[0]->Render();
   
     mTextures[0]->UnbindTextureUnit();
     mMeshes[0]->Unbind();
   
+    glUseProgram( 0 );
+  }
+
+  // draw pixel grid if needed
+  if ( mDrawPixelGrid )
+  {
+    glUseProgram( mShaderProgram );
+
+    const math::mat4 vpMatrix( mProjectionMatrix * mViewMatrix );
+    const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
+    glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
+
+    mMeshes[1]->Bind();
+    mTextures[1]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
+
+    glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
+
+    mMeshes[1]->Render();
+
+    mTextures[1]->UnbindTextureUnit();
+    mMeshes[1]->Unbind();
+
     glUseProgram( 0 );
   }
 

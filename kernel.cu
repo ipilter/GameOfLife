@@ -9,6 +9,8 @@
 
 #include "Kernel.cuh"
 
+static curandState_t* gRandomStates = nullptr;
+
 __device__ const uint32_t& Max( const uint32_t& a, const uint32_t& b )
 {
   return a >= b ? a : b;
@@ -165,14 +167,23 @@ cudaError_t RunRandomKernel( uint32_t* buffer, const float prob, const uint32_t 
   const dim3 gridSize( (width + blockSize.x - 1) / blockSize.x
                        , (height + blockSize.y - 1) / blockSize.y ); // number of blocks in the grid
 
-  // TODO: revisit this random number stuff. Random states per pixel?
-  curandState_t* states = nullptr;
-  cudaMalloc((void**) &states, width * height * sizeof(curandState_t));
+  // TODO: revisit this random number stuff. Random states per pixel? / blcck instead ?
+  if ( gRandomStates == nullptr )
+  {
+    cudaMalloc((void**) &gRandomStates, width * height * sizeof(curandState_t));
+  }
 
-  InitRandom<<<gridSize, blockSize>>>( static_cast<uint32_t>( time( nullptr ) ), width, height, states );
-  RandomKernel<<<gridSize, blockSize>>>( buffer, width, height, livingColor, deadColor, prob, states );
-
-  cudaFree( states );
+  InitRandom<<<gridSize, blockSize>>>( static_cast<uint32_t>( time( nullptr ) ), width, height, gRandomStates );
+  RandomKernel<<<gridSize, blockSize>>>( buffer, width, height, livingColor, deadColor, prob, gRandomStates );
 
   return cudaGetLastError();
+}
+
+cudaError_t FreeCudaRandomStates()
+{
+  if ( gRandomStates )
+  {
+    return cudaFree( gRandomStates );
+  }
+  return cudaSuccess;
 }
