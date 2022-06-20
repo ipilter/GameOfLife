@@ -117,7 +117,8 @@ __global__ void RandomKernel( uint32_t* buffer, const uint32_t width, const uint
     v = livingColor;
   }
 
-  buffer[x + width * y + 0] = Max(v, buffer[x + width * y + 0]);
+  const uint32_t current = buffer[x + width * y + 0];
+  buffer[x + width * y + 0] = ( current == deadColor ? v : current);
 }
 
 cudaError_t RunFillKernel( uint32_t* buffer, const uint32_t value, const uint32_t width, const uint32_t height )

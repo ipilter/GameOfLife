@@ -27,7 +27,7 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   , mQuadSize( 1.0f )
   , mTextureSize( textureSize )
   , mPrimaryColor ( util::Color( 255, 255, 255 ) )
-  , mSecondaryColor ( util::Color( 20, 20, 20 ) )
+  , mSecondaryColor ( util::Color( 0, 0, 0 ) )
   , mCurrentDrawingColor ( util::Color( 255, 255, 255 ) ) // TODO index in an array instead
 {
   wxGLContextAttrs contextAttrs;
@@ -350,10 +350,10 @@ void GLCanvas::CreateTextures()
     std::unique_ptr<uint32_t[]> pixelBuffer = std::make_unique<uint32_t[]>( pixelCount );
 
     // TODO do on GPU instead
-    const uint8_t alpha = 255;
-    const uint32_t backgroundColor = util::Color( 20, 20, 20, alpha );
-    const uint32_t darkForegroundColor = util::Color( 30, 30, 30, alpha );
-    const uint32_t lightForegroundColor = util::Color( 50, 50, 50, alpha );
+    const uint8_t alpha = 50;
+    const uint32_t backgroundColor = util::Color( 0, 0, 0, 0 );
+    const uint32_t darkForegroundColor = util::Color( 130, 130, 130, alpha );
+    const uint32_t lightForegroundColor = util::Color( 255, 255, 255, alpha );
     for ( uint32_t j = 0; j < mTextures.back()->Height(); ++j )
     {
       for ( uint32_t i = 0; i < mTextures.back()->Width(); ++i )
@@ -375,7 +375,10 @@ void GLCanvas::CreateTextures()
     mTextures.back()->Unbind();
   }
 
-  // create pattern textures here
+  // create pattern textures
+  {
+
+  }
 
   std::stringstream ss;
   ss << " Texture with dimensions " << mTextures.front()->Width() << "x" << mTextures.front()->Height() << " created";
@@ -405,6 +408,16 @@ void GLCanvas::CreatePatterns()
       0, 1, 0,
         0, 0, 1,
         1, 1, 1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Eater", 4, 4, std::vector<bool> {
+        1, 1, 0, 0,
+        1, 0, 1, 0,
+        0, 0, 1, 0,
+        0, 0, 1, 1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Block", 2, 2, std::vector<bool> {
+        1, 1,
+        1, 1 } ) ) );
 
     mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
       0, 0, 1, 1, 0,
@@ -591,7 +604,7 @@ void GLCanvas::Random()
   mPBOs[mFrontBufferIdx]->BindPbo();
   mTextures.front()->Bind();
   mTextures.front()->UpdateFromPBO();
-  mTextures.front()->Bind();
+  mTextures.front()->Unbind();
   mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
@@ -659,9 +672,10 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
 {
   SetCurrent( *mContext );
 
-  glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+  glClearColor( 0.1f, 0.1f, 0.1f, 1.0f );
   glEnable( GL_BLEND );
-  glBlendEquation( GL_MAX );  // TODO background must be black. Rethink this
+  glBlendEquation( GL_FUNC_ADD );
+  glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
   glClear( GL_COLOR_BUFFER_BIT );
 
   // draw world

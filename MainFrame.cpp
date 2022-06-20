@@ -161,7 +161,7 @@ void MainFrame::OnPrimaryColorButton( wxCommandEvent& event )
   const uint32_t pc = mGLCanvas->GetPrimaryColor();
   const wxColour wxc( wxGetColourFromUser( this, wxColor( util::Component( pc, 0 ), util::Component( pc, 1 ), util::Component( pc, 2 ) ) ) );
   mPrimaryColorButton->SetBackgroundColour( wxc );
-  mGLCanvas->SetPrimaryColor( util::Color( wxc.Red(), wxc.Green(), wxc.Blue() ) );
+  mGLCanvas->SetPrimaryColor( util::Color( wxc.Red(), wxc.Green(), wxc.Blue(), util::Component( pc, 3 ) ) );
 }
 
 void MainFrame::OnSecondaryColorButton( wxCommandEvent& event )
@@ -169,7 +169,7 @@ void MainFrame::OnSecondaryColorButton( wxCommandEvent& event )
   const uint32_t sc = mGLCanvas->GetSecondaryColor();
   const wxColour wxc( wxGetColourFromUser( this, wxColor( util::Component( sc, 0 ), util::Component( sc, 1 ), util::Component( sc, 2 ) ) ) );
   mSecondaryColorButton->SetBackgroundColour( wxc );
-  mGLCanvas->SetSecondaryColor( util::Color( wxc.Red(), wxc.Green(), wxc.Blue() ) );
+  mGLCanvas->SetSecondaryColor( util::Color( wxc.Red(), wxc.Green(), wxc.Blue(), util::Component( sc, 3 ) ) );
 }
 
 void MainFrame::OnPatternComboBox( wxCommandEvent& /*event*/ )
