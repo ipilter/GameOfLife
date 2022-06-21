@@ -7,5 +7,5 @@ out uvec4 fragColor;
 
 void main()
 {
-  fragColor = texture( textureData, fUV);
+  fragColor = texture( textureData, fUV );
 }

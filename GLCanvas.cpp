@@ -48,8 +48,11 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   Bind( wxEVT_KEY_DOWN, &GLCanvas::OnKeyDown, this );
 
   SetCurrent( *mContext );
+
+  // OpenGL
   InitializeGLEW();
 
+  // Cuda
   cudaError_t error_test = cudaSuccess;
 
   int32_t gpuCount = 0;
@@ -100,19 +103,20 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   // patterns
   CreatePatterns();
 
+  // step timer
   mStepTimer = std::make_unique<StepTimer>( this );
 }
 
 GLCanvas::~GLCanvas()
 {
-  {
-    std::ofstream patternsStream( "e:\\patterns.dat" );
-    util::Write_t( patternsStream, mDrawPatterns.size() );
-    for ( auto& p : mDrawPatterns )
-    {
-      p->Write( patternsStream );
-    }
-  }
+  //{
+  //  std::ofstream patternsStream( "e:\\patterns.dat" );
+  //  util::Write_t( patternsStream, mDrawPatterns.size() );
+  //  for ( const auto& p : mDrawPatterns )
+  //  {
+  //    p->Write( patternsStream );
+  //  }
+  //}
 
   SetCurrent( *mContext );
 
@@ -175,7 +179,7 @@ void GLCanvas::InitializeGLEW()
     throw std::exception( reinterpret_cast<const char*>( msg ) );
   }
 
-  auto fp64 = glewGetExtension( "GL_ARB_gpu_shader_fp64" );
+  const bool fp64( glewGetExtension( "GL_ARB_gpu_shader_fp64" ) );
   logger::Logger::Instance() << "GL_ARB_gpu_shader_fp64 " << ( fp64 == 1 ? "supported" : "not supported" ) << "\n";
 }
 
@@ -317,8 +321,8 @@ void GLCanvas::CreateTextures()
   {
     mTextures.push_back( std::make_unique<Texture>( mTextureSize, mTextureSize ) );
 
-    const auto pixelCount = mTextures.front()->Width() * mTextures.front()->Height();
-    const auto byteCount = pixelCount * sizeof( uint32_t );
+    const size_t pixelCount = mTextures.front()->Width() * mTextures.front()->Height();
+    const size_t byteCount = pixelCount * sizeof( uint32_t );
 
     // allocate PBO pixels
     mPBOs[mBackBufferIdx]->BindPbo();
@@ -393,7 +397,7 @@ void GLCanvas::CreatePatterns()
     size_t count = 0;
     util::Read_t( patternsStream, count );
     mDrawPatterns.resize( count );
-    for( auto i(0); i < count; ++i )
+    for( size_t i(0); i < count; ++i )
     {
       mDrawPatterns[i] = std::move( std::make_unique<Pattern>() );
       mDrawPatterns[i]->Read( patternsStream );
@@ -403,6 +407,10 @@ void GLCanvas::CreatePatterns()
   {
     mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
       1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Block", 2, 2, std::vector<bool> {
+      1, 1,
+      1, 1 } ) ) );
 
     mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
       0, 1, 0,
@@ -414,10 +422,6 @@ void GLCanvas::CreatePatterns()
         1, 0, 1, 0,
         0, 0, 1, 0,
         0, 0, 1, 1 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Block", 2, 2, std::vector<bool> {
-        1, 1,
-        1, 1 } ) ) );
 
     mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
       0, 0, 1, 1, 0,

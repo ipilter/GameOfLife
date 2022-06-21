@@ -71,8 +71,7 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>rem copy "D:\HomeWork\Projects\C++\dependencies\stu\glew\2.1.0\bin\Release\x64\glew32.dll" "$(OutDir)"
-rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x64_dll\*.dll" "$(OutDir)"</Command>
+      <Command>copy "D:\HomeWork\Projects\C++\dependencies\stu\glew\2.1.0\bin\Release\x64\glew32.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -99,8 +98,7 @@ rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x6
       <TargetMachinePlatform>64</TargetMachinePlatform>
     </CudaCompile>
     <PostBuildEvent>
-      <Command>rem copy "D:\HomeWork\Projects\C++\dependencies\stu\glew\2.1.0\bin\Release\x64\glew32.dll" "$(OutDir)"
-rem copy "D:\HomeWork\Projects\C++\dependencies\stu\wxwidgets\3.1.6\lib\vc14x_x64_dll\*.dll" "$(OutDir)"</Command>
+      <Command>copy "D:\HomeWork\Projects\C++\dependencies\stu\glew\2.1.0\bin\Release\x64\glew32.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

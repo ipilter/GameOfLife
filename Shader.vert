@@ -9,5 +9,5 @@ out vec2 fUV;
 void main()
 {
   fUV = uv;
-  gl_Position = vpMatrix * vec4(vertexPosition_modelspace, 1.0);
+  gl_Position = vpMatrix * vec4( vertexPosition_modelspace, 1.0 );
 }

@@ -118,7 +118,7 @@ inline void Write_t( std::ofstream& stream, const std::vector<bool>& array )
 {
   const size_t count( array.size() );
   Write_t( stream, count );
-  for ( auto i( 0 ); i < count; ++i )
+  for ( size_t i( 0 ); i < count; ++i )
   {
     Write_t( stream, array[i] );
   }
@@ -151,7 +151,7 @@ inline void Read_t( std::ifstream& stream, std::vector<bool>& array )
   Read_t( stream, count );
   array.resize( count, 0 );
 
-  for ( auto i( 0 ); i < count; ++i )
+  for ( size_t i( 0 ); i < count; ++i )
   {
     bool v = false;
     Read_t( stream, v );

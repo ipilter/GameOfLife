@@ -25,8 +25,8 @@ using mat4 = glm::mat4;
 
 inline float Random()
 {
-  static auto r = std::bind(  std::uniform_real_distribution<float>{ 0, 1 }, std::default_random_engine( std::random_device()() ) );
-  return r();
+  static auto uniformRandom( std::bind(  std::uniform_real_distribution<float>{ 0, 1 }, std::default_random_engine( std::random_device()() ) ) );
+  return uniformRandom();
 }
 
 template<class T = float>
@@ -102,14 +102,14 @@ inline std::ostream& operator << ( std::ostream& stream, const math::vec4& v )
 inline std::ostream& operator << ( std::ostream& stream, const math::mat4& m )
 {
   stream << std::fixed << std::setprecision(6) << "[";
-  for ( auto i = 0; i < 4; ++i )
+  for ( uint32_t i = 0; i < 4; ++i )
   {
     if ( i != 0 )
     {
       stream << ", ";
     }
     stream << "[";
-    for ( auto j = 0; j < 4; ++j )
+    for ( uint32_t j = 0; j < 4; ++j )
     {
       if ( j != 0 )
       {
