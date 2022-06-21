@@ -26,6 +26,9 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   : wxGLCanvas( parent, id, attribList, pos, size, style, name, palette )
   , mQuadSize( 1.0f )
   , mTextureSize( textureSize )
+  , mPrimaryColor ( util::Color( 255, 255, 255 ) )
+  , mSecondaryColor ( util::Color( 0, 0, 0 ) )
+  , mCurrentDrawingColor ( util::Color( 255, 255, 255 ) ) // TODO index in an array instead
 {
   wxGLContextAttrs contextAttrs;
   contextAttrs.CoreProfile().OGLVersion( 4, 5 ).Robust().ResetIsolation().EndList();
@@ -45,8 +48,11 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   Bind( wxEVT_KEY_DOWN, &GLCanvas::OnKeyDown, this );
 
   SetCurrent( *mContext );
+
+  // OpenGL
   InitializeGLEW();
 
+  // Cuda
   cudaError_t error_test = cudaSuccess;
 
   int32_t gpuCount = 0;
@@ -79,7 +85,7 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   // stuff
   int32_t maxTextureSize = 0;
   glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
-  logger::Logger::instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
+  logger::Logger::Instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
   mTextureSize = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) ); // nxn pixels
   mTexturePatternSize = 10; // nxn pixels
 
@@ -87,140 +93,56 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   CreateShaderProgram();
   CreateTextures();
 
+  int32_t pboAlignment = -1;
+  glGetIntegerv(GL_UNPACK_ALIGNMENT, &pboAlignment);
+  logger::Logger::Instance() << "pbo alignment " << pboAlignment << "\n";
+
   // view
   mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 5.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
 
   // patterns
-  if ( std::filesystem::exists( "e:\\patterns.dat" ) )
-  {
-    std::ifstream patternsStream( "e:\\patterns.dat" );
-    size_t count = 0;
-    util::Read_t( patternsStream, count );
-    mDrawPatterns.resize( count );
-    for( auto i(0); i < count; ++i )
-    {
-      mDrawPatterns[i] = std::move( std::make_unique<Pattern>() );
-      mDrawPatterns[i]->read( patternsStream );
-    }
-  }
-  else
-  {
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
-                                                                      1 } ) ) );
+  CreatePatterns();
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
-                                                                      0, 1, 0,
-                                                                      0, 0, 1,
-                                                                      1, 1, 1 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
-                                                                      0, 0, 1, 1, 0,
-                                                                      1, 1, 0, 1, 1,
-                                                                      1, 1, 1, 1, 0,
-                                                                      0, 1, 1, 0, 0 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Middleweight Spaceship", 6, 4, std::vector<bool> {
-                                                                      0, 0, 0, 1, 1, 0,
-                                                                      1, 1, 1, 0, 1, 1,
-                                                                      1, 1, 1, 1, 1, 0,
-                                                                      0, 1, 1, 1, 0, 0 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Heavyweight Spaceship", 7, 4, std::vector<bool> {
-                                                                      0, 0, 0, 0, 1, 1, 0,
-                                                                      1, 1, 1, 1, 0, 1, 1,
-                                                                      1, 1, 1, 1, 1, 1, 0,
-                                                                      0, 1, 1, 1, 1, 0, 0 } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-                                                                      1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
-
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Unknown Ship", 34, 35, std::vector<bool> {
-                                                                      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,1,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      1,0,0,1,1,1,1,1,1,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,1,0,0,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      1,0,0,1,0,1,0,0,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,1,0,0,0,1,1,1,1,1,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,1,1,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,1,1,0,0,0,1,1,1,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,1,1,0,0,0,0,0,1,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0,0,1,0,0,1,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,0,0,0,0,1,1,0,0,1,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,0,1,1,0,1,0,0,1,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
-                                                                      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 } ) ) );
-  }
-
+  // step timer
   mStepTimer = std::make_unique<StepTimer>( this );
 }
 
 GLCanvas::~GLCanvas()
 {
-  {
-    std::ofstream patternsStream( "e:\\patterns.dat" );
-    util::Write_t( patternsStream, mDrawPatterns.size() );
-    for ( auto& p : mDrawPatterns )
-    {
-      p->write( patternsStream );
-    }
-  }
+  //{
+  //  std::ofstream patternsStream( "e:\\patterns.dat" );
+  //  util::Write_t( patternsStream, mDrawPatterns.size() );
+  //  for ( const auto& p : mDrawPatterns )
+  //  {
+  //    p->Write( patternsStream );
+  //  }
+  //}
 
   SetCurrent( *mContext );
 
   glDeleteShader( mVertexShader );
   glDeleteShader( mFragmentxShader );
   glDeleteProgram( mShaderProgram );
-
-  glDeleteVertexArrays( 1, &mVao );
-  glDeleteBuffers( 1, &mVbo );
-  glDeleteBuffers( 1, &mIbo );
+  
+  FreeCudaRandomStates();
 }
 
-void GLCanvas::SetPrimaryColor( const math::uvec3& color )
+void GLCanvas::SetPrimaryColor( const uint32_t color )
 {
   mPrimaryColor = color;
 }
 
-const math::uvec3& GLCanvas::GetPrimaryColor() const
+const uint32_t GLCanvas::GetPrimaryColor() const
 {
   return mPrimaryColor;
 }
 
-void GLCanvas::SetSecondaryColor( const math::uvec3& color )
+void GLCanvas::SetSecondaryColor( const uint32_t color )
 {
   mSecondaryColor = color;
 }
 
-const math::uvec3& GLCanvas::GetSecondaryColor() const
+const uint32_t GLCanvas::GetSecondaryColor() const
 {
   return mSecondaryColor;
 }
@@ -253,49 +175,72 @@ void GLCanvas::InitializeGLEW()
   GLenum err = glewInit();
   if ( err != GLEW_OK )
   {
-    const GLubyte* msg = glewGetErrorString( err );
+    const uint8_t* msg = glewGetErrorString( err );
     throw std::exception( reinterpret_cast<const char*>( msg ) );
   }
 
-  auto fp64 = glewGetExtension( "GL_ARB_gpu_shader_fp64" );
-  logger::Logger::instance() << "GL_ARB_gpu_shader_fp64 " << ( fp64 == 1 ? "supported" : "not supported" ) << "\n";
+  const bool fp64( glewGetExtension( "GL_ARB_gpu_shader_fp64" ) );
+  logger::Logger::Instance() << "GL_ARB_gpu_shader_fp64 " << ( fp64 == 1 ? "supported" : "not supported" ) << "\n";
 }
 
 void GLCanvas::CreateGeometry()
 {
-  const float pixelPatternTexelSize = mTextureSize / static_cast<float>( mTexturePatternSize );
-  const std::vector<float> points = { 0.0f,      0.0f,       0.0f, 1.0f, 0.0,                   pixelPatternTexelSize // vtx bl
-                                     , mQuadSize, 0.0f,      1.0f, 1.0f, pixelPatternTexelSize, pixelPatternTexelSize // vtx br
-                                     , 0.0f,      mQuadSize, 0.0f, 0.0f, 0.0,                   0.0 // vtx tl
-                                     , mQuadSize, mQuadSize, 1.0f, 0.0f, pixelPatternTexelSize, 0.0 // vtx tr
-  };
+  // world quad
+  {
+    const std::vector<float> points = { 0.0f,      0.0f,       0.0f, 1.0f // vtx bl
+                                       , mQuadSize, 0.0f,      1.0f, 1.0f // vtx br
+                                       , 0.0f,      mQuadSize, 0.0f, 0.0f // vtx tl
+                                       , mQuadSize, mQuadSize, 1.0f, 0.0f // vtx tr
+    };
 
-  const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+    const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
 
-  glGenBuffers( 1, &mVbo );
-  glBindBuffer( GL_ARRAY_BUFFER, mVbo );
-  glBufferData( GL_ARRAY_BUFFER, sizeof( float ) * points.size(), &points.front(), GL_STATIC_DRAW );
+    // layout of data inside points array
+    const size_t stride = 4 * sizeof( float );
+    const size_t vertexOffset = 0;
+    const size_t texelOffset = 2 * sizeof( float );
 
-  glGenBuffers( 1, &mIbo );
-  glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIbo );
-  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( uint32_t ) * indices.size(), &indices.front(), GL_STATIC_DRAW );
+    mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) );
+  }
 
-  glGenVertexArrays( 1, &mVao );
-  glBindVertexArray( mVao );
-  glEnableVertexAttribArray( 0 );
-  glEnableVertexAttribArray( 1 );
-  glEnableVertexAttribArray( 2 );
-  glBindBuffer( GL_ARRAY_BUFFER, mVbo );
-  glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mIbo );
+  // pixel grid quad
+  {
+    const float pixelPatternTexelSize = mTextureSize / static_cast<float>( mTexturePatternSize );
+    const std::vector<float> points = { 0.0f,      0.0f,       0.0,                   pixelPatternTexelSize // vtx bl
+                                       , mQuadSize, 0.0f,      pixelPatternTexelSize, pixelPatternTexelSize // vtx br
+                                       , 0.0f,      mQuadSize, 0.0,                   0.0                   // vtx tl
+                                       , mQuadSize, mQuadSize, pixelPatternTexelSize, 0.0                   // vtx tr
+    };
 
-  uint32_t stride = 6 * sizeof( float );
-  size_t vertexOffset = 0;
-  size_t worldTexelOffset = 2 * sizeof( float );
-  size_t patternTexelOffset = 4 * sizeof( float );
-  glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( vertexOffset ) );
-  glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( worldTexelOffset ) );
-  glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( patternTexelOffset ) );
-  glBindVertexArray( 0 );
+    const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+
+    // layout of data inside points array
+    const size_t stride = 4 * sizeof( float );
+    const size_t vertexOffset = 0;
+    const size_t texelOffset = 2 * sizeof( float );
+
+    mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) );
+  }
+
+  // pattern quads TODO
+  //{
+  //  const float pixelSize = 1.0f / mTextureSize;
+  //  const float patternSize = 3.0f; // 3x3 pixels
+  //  const float quadSize = pixelSize * patternSize;
+  //  const std::vector<float> points = { 0.0f,      0.0f,     0.0f, 1.0f // vtx bl
+  //                                     , quadSize, 0.0f,     1.0f, 1.0f // vtx br
+  //                                     , 0.0f,     quadSize, 0.0f, 0.0f // vtx tl
+  //                                     , quadSize, quadSize, 1.0f, 0.0f // vtx tr
+  //  };
+
+  //  const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+
+  //  // layout of data inside points array
+  //  const size_t stride = 4 * sizeof( float );
+  //  const size_t vertexOffset = 0;
+  //  const size_t texelOffset = 2 * sizeof( float );
+  //  mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) );
+  //}
 }
 
 void GLCanvas::CreateShaderProgram()
@@ -376,70 +321,174 @@ void GLCanvas::CreateTextures()
   {
     mTextures.push_back( std::make_unique<Texture>( mTextureSize, mTextureSize ) );
 
-    const auto pixelCount = mTextures.front()->width() * mTextures.front()->height();
-    const auto byteCount = pixelCount * 4ull;
+    const size_t pixelCount = mTextures.front()->Width() * mTextures.front()->Height();
+    const size_t byteCount = pixelCount * sizeof( uint32_t );
 
     // allocate PBO pixels
-    mPBOs[mBackBufferIdx]->bindPbo();
-    mPBOs[mBackBufferIdx]->allocate( byteCount );
-    mPBOs[mBackBufferIdx]->registerCudaResource(); // TODO check this
-    mPBOs[mBackBufferIdx]->unbindPbo();
+    mPBOs[mBackBufferIdx]->BindPbo();
+    mPBOs[mBackBufferIdx]->Allocate( byteCount );
+    mPBOs[mBackBufferIdx]->RegisterCudaResource(); // TODO check this
+    mPBOs[mBackBufferIdx]->UnbindPbo();
 
-    mPBOs[mFrontBufferIdx]->bindPbo();
-    mPBOs[mFrontBufferIdx]->allocate( byteCount );
-    mPBOs[mFrontBufferIdx]->registerCudaResource(); // TODO check this
+    mPBOs[mFrontBufferIdx]->BindPbo();
+    mPBOs[mFrontBufferIdx]->Allocate( byteCount );
+    mPBOs[mFrontBufferIdx]->RegisterCudaResource(); // TODO check this
 
     // initialize front buffer
-    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
-    std::fill( pixelBuffer, pixelBuffer + byteCount, 0 );
-    mPBOs[mFrontBufferIdx]->unmapPboBuffer();
+    uint32_t* devicePixelBufferPtr = mPBOs[mFrontBufferIdx]->MapPboBuffer(); // TODO no raw ptr
+    std::fill( devicePixelBufferPtr, devicePixelBufferPtr + pixelCount, mSecondaryColor );
+    mPBOs[mFrontBufferIdx]->UnmapPboBuffer();
 
     // update texture from front buffer
-    mTextures.back()->bind();
-    mTextures.back()->createFromPBO();
-    mTextures.back()->unbind();
-    mPBOs[mFrontBufferIdx]->unbindPbo();
+    mTextures.back()->Bind();
+    mTextures.back()->CreateFromPBO();
+    mTextures.back()->Unbind();
+    mPBOs[mFrontBufferIdx]->UnbindPbo();
   }
 
   // create pixel grid checkerboard texture
   {
     mTextures.push_back( std::make_unique<Texture>( mTexturePatternSize, mTexturePatternSize, GL_REPEAT ) );
 
-    const uint8_t backgroundColor = 20;
-    const uint8_t darkForegroundColor = 30;
-    const uint8_t lightForegroundColor = 50;
-    const auto pixelCount = mTextures.back()->width() * mTextures.back()->height();
-    const auto byteCount = pixelCount * 4ull; // TODO no need for RGBA here
+    const uint32_t pixelCount = mTextures.back()->Width() * mTextures.back()->Height();
+    std::unique_ptr<uint32_t[]> pixelBuffer = std::make_unique<uint32_t[]>( pixelCount );
 
-    std::unique_ptr<uint8_t[]> pixelBuffer = std::make_unique<uint8_t[]>( byteCount );
-    for ( uint32_t j = 0; j < mTextures.back()->height(); ++j )
+    // TODO do on GPU instead
+    const uint8_t alpha = 50;
+    const uint32_t backgroundColor = util::Color( 0, 0, 0, 0 );
+    const uint32_t darkForegroundColor = util::Color( 130, 130, 130, alpha );
+    const uint32_t lightForegroundColor = util::Color( 255, 255, 255, alpha );
+    for ( uint32_t j = 0; j < mTextures.back()->Height(); ++j )
     {
-      for ( uint32_t i = 0; i < mTextures.back()->width(); ++i )
+      for ( uint32_t i = 0; i < mTextures.back()->Width(); ++i )
       {
         const bool isGridPixel = ( ( ( i & 0x1 ) == 0 ) ^ ( ( j & 0x1 ) == 0 ) );
-        uint8_t color = isGridPixel ? darkForegroundColor : backgroundColor;
+        uint32_t color = isGridPixel ? darkForegroundColor : backgroundColor;
         if ( isGridPixel && ( (i % 10 == 0) || (j % 10 == 0) ) )
         {
           color = lightForegroundColor;
         }
 
-        const auto offset = i * 4ull + j * 4ull * mTextures.back()->width();
-        pixelBuffer[offset + 0] = color;
-        pixelBuffer[offset + 1] = color;
-        pixelBuffer[offset + 2] = color;
-        pixelBuffer[offset + 3] = 0;
+        const uint32_t offset = i + j * mTextures.back()->Width();
+        pixelBuffer[offset] = color;
       }
     }
 
-    mTextures.back()->bind();
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, mTextures.back()->width(), mTextures.back()->height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer.get() );
-    mTextures.back()->unbind();
+    mTextures.back()->Bind();
+    mTextures.back()->CreateFromArray( pixelBuffer.get() );
+    mTextures.back()->Unbind();
+  }
+
+  // create pattern textures
+  {
+
   }
 
   std::stringstream ss;
-  ss << " Texture with dimensions " << mTextures.front()->width() << "x" << mTextures.front()->height() << " created";
+  ss << " Texture with dimensions " << mTextures.front()->Width() << "x" << mTextures.front()->Height() << " created";
   dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
-  logger::Logger::instance() << "Creating texture with size " << mTextures.front()->width() << "x" << mTextures.front()->height() << "\n";
+}
+
+void GLCanvas::CreatePatterns()
+{
+  if ( std::filesystem::exists( "e:\\patterns.dat" ) )
+  {
+    std::ifstream patternsStream( "e:\\patterns.dat" );
+    size_t count = 0;
+    util::Read_t( patternsStream, count );
+    mDrawPatterns.resize( count );
+    for( size_t i(0); i < count; ++i )
+    {
+      mDrawPatterns[i] = std::move( std::make_unique<Pattern>() );
+      mDrawPatterns[i]->Read( patternsStream );
+    }
+  }
+  else
+  {
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
+      1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Block", 2, 2, std::vector<bool> {
+      1, 1,
+      1, 1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
+      0, 1, 0,
+        0, 0, 1,
+        1, 1, 1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Eater", 4, 4, std::vector<bool> {
+        1, 1, 0, 0,
+        1, 0, 1, 0,
+        0, 0, 1, 0,
+        0, 0, 1, 1 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
+      0, 0, 1, 1, 0,
+        1, 1, 0, 1, 1,
+        1, 1, 1, 1, 0,
+        0, 1, 1, 0, 0 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Middleweight Spaceship", 6, 4, std::vector<bool> {
+      0, 0, 0, 1, 1, 0,
+        1, 1, 1, 0, 1, 1,
+        1, 1, 1, 1, 1, 0,
+        0, 1, 1, 1, 0, 0 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Heavyweight Spaceship", 7, 4, std::vector<bool> {
+      0, 0, 0, 0, 1, 1, 0,
+        1, 1, 1, 1, 0, 1, 1,
+        1, 1, 1, 1, 1, 1, 0,
+        0, 1, 1, 1, 1, 0, 0 } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
+
+    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Unknown Ship", 34, 35, std::vector<bool> {
+      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,1,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        1,0,0,1,1,1,1,1,1,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,1,0,0,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        1,0,0,1,0,1,0,0,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,1,0,0,0,1,1,1,1,1,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,1,1,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,1,1,0,0,0,1,1,1,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,1,1,0,0,0,0,0,1,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0,0,1,0,0,1,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,0,0,0,0,1,1,0,0,1,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,0,1,1,0,1,0,0,1,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 } ) ) );
+  }
 }
 
 math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
@@ -455,9 +504,9 @@ math::vec2 GLCanvas::ScreenToWorld( const math::ivec2& screenSpacePoint )
 
 math::ivec2 GLCanvas::WorldToImage( const math::vec2& worldSpacePoint )
 {
-  const float x( worldSpacePoint.x / mQuadSize * mTextures.front()->width() );
-  const float y( -worldSpacePoint.y / mQuadSize * mTextures.front()->height() + mTextures.front()->height() );  // texture`s and world`s y are in the opposite order
-  if ( x < 0.0f || x >= static_cast<float>( mTextures.front()->width() ) || y < 0.0f || y >= static_cast<float>( mTextures.front()->height() ) )
+  const float x( worldSpacePoint.x / mQuadSize * mTextures.front()->Width() );
+  const float y( -worldSpacePoint.y / mQuadSize * mTextures.front()->Height() + mTextures.front()->Height() );  // texture`s and world`s y are in the opposite order
+  if ( x < 0.0f || x >= static_cast<float>( mTextures.front()->Width() ) || y < 0.0f || y >= static_cast<float>( mTextures.front()->Height() ) )
   {
     return math::ivec2( -1, -1 );
   }
@@ -469,15 +518,15 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
   try
   {
     // calculate updateable pixel region coordinates
-    int32_t tox = pixel.x - ( mDrawPattern.width() / 2.0f ) + 0.5f;
-    int32_t toy = pixel.y - ( mDrawPattern.height() / 2.0f ) + 0.5f;
-    uint32_t pw = mDrawPattern.width();
-    uint32_t ph = mDrawPattern.height();
+    int32_t tox = pixel.x - ( mDrawPattern.Width() / 2.0f ) + 0.5f;
+    int32_t toy = pixel.y - ( mDrawPattern.Height() / 2.0f ) + 0.5f;
+    uint32_t pw = mDrawPattern.Width();
+    uint32_t ph = mDrawPattern.Height();
 
     uint32_t rxmin = std::max( tox, 0 );
     uint32_t rymin = std::max( toy, 0 );
-    uint32_t rxmax = std::min( tox + mDrawPattern.width(), mTextures.front()->width() );
-    uint32_t rymax = std::min( toy + mDrawPattern.height(), mTextures.front()->height() );
+    uint32_t rxmax = std::min( tox + mDrawPattern.Width(), mTextures.front()->Width() );
+    uint32_t rymax = std::min( toy + mDrawPattern.Height(), mTextures.front()->Height() );
 
     uint32_t pox = 0;
     uint32_t poy = 0;
@@ -491,8 +540,8 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     }
 
     // update pixels in front PBO
-    mPBOs[mFrontBufferIdx]->bindPbo();
-    uint8_t* pixelBuffer = mPBOs[mFrontBufferIdx]->mapPboBuffer();
+    mPBOs[mFrontBufferIdx]->BindPbo();
+    uint32_t* pixelBuffer = mPBOs[mFrontBufferIdx]->MapPboBuffer();
 
     uint32_t pcx = pox;
     uint32_t pcy = poy;
@@ -500,12 +549,10 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     {
       for ( uint32_t px = rxmin; px < rxmax; ++px )
       {
-        const uint64_t offset = px * 4ull + py * 4ull * mTextures.front()->width();
-        if ( mDrawPattern.at( pcx, pcy ) )
+        const uint64_t offset = px + py * mTextures.front()->Width();
+        if ( mDrawPattern.At( pcx, pcy ) )
         {
-          pixelBuffer[offset + 0] = mCurrentDrawingColor.x;
-          pixelBuffer[offset + 1] = mCurrentDrawingColor.y;
-          pixelBuffer[offset + 2] = mCurrentDrawingColor.z;
+          pixelBuffer[offset] = mCurrentDrawingColor;
         }
         ++pcx;
       }
@@ -513,13 +560,13 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
       pcx = pox;
     }
 
-    mPBOs[mFrontBufferIdx]->unmapPboBuffer();
+    mPBOs[mFrontBufferIdx]->UnmapPboBuffer();
 
     // update texture region from front PBO
-    mTextures.front()->bind();
-    mTextures.front()->updateFromPBO( rxmin, rymin, rxmax - rxmin, rymax - rymin );
-    mTextures.front()->unbind();
-    mPBOs[mFrontBufferIdx]->unbindPbo();
+    mTextures.front()->Bind();
+    mTextures.front()->UpdateFromPBO( rxmin, rymin, rxmax - rxmin, rymax - rymin );
+    mTextures.front()->Unbind();
+    mPBOs[mFrontBufferIdx]->UnbindPbo();
   }
   catch ( const std::exception& e )
   {
@@ -532,17 +579,17 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
 void GLCanvas::Reset()
 {
   // reset pixels in the front buffer
-  mPBOs[mFrontBufferIdx]->mapCudaResource();
-  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-  RunFillKernel( mappedPtr, mSecondaryColor.x, mTextures.front()->width(), mTextures.front()->height() );
-  mPBOs[mFrontBufferIdx]->unmapCudaResource();
+  mPBOs[mFrontBufferIdx]->MapCudaResource();
+  uint32_t* mappedPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
+  RunFillKernel( mappedPtr, mSecondaryColor, mTextures.front()->Width(), mTextures.front()->Height() );
+  mPBOs[mFrontBufferIdx]->UnmapCudaResource();
 
   // update texture from the front buffer
-  mPBOs[mFrontBufferIdx]->bindPbo();
-  mTextures.front()->bind();
-  mTextures.front()->updateFromPBO();
-  mTextures.front()->bind();
-  mPBOs[mFrontBufferIdx]->unbindPbo();
+  mPBOs[mFrontBufferIdx]->BindPbo();
+  mTextures.front()->Bind();
+  mTextures.front()->UpdateFromPBO();
+  mTextures.front()->Bind();
+  mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
 }
@@ -550,45 +597,45 @@ void GLCanvas::Reset()
 void GLCanvas::Random()
 {
   // reset pixels in the front buffer
-  mPBOs[mFrontBufferIdx]->mapCudaResource();
-  uint8_t* mappedPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
+  mPBOs[mFrontBufferIdx]->MapCudaResource();
+  uint32_t* mappedPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
 
-  RunRandomKernel( mappedPtr, mPrimaryColor.x, mSecondaryColor.x, 0.9f, mTextures.front()->width(), mTextures.front()->height() );
+  RunRandomKernel( mappedPtr, 0.9f, mTextures.front()->Width(), mTextures.front()->Height(), mPrimaryColor, mSecondaryColor );
 
-  mPBOs[mFrontBufferIdx]->unmapCudaResource();
+  mPBOs[mFrontBufferIdx]->UnmapCudaResource();
 
   // update texture from the front buffer
-  mPBOs[mFrontBufferIdx]->bindPbo();
-  mTextures.front()->bind();
-  mTextures.front()->updateFromPBO();
-  mTextures.front()->bind();
-  mPBOs[mFrontBufferIdx]->unbindPbo();
+  mPBOs[mFrontBufferIdx]->BindPbo();
+  mTextures.front()->Bind();
+  mTextures.front()->UpdateFromPBO();
+  mTextures.front()->Unbind();
+  mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
 }
 
 void GLCanvas::RotatePattern()
 {
-  mDrawPattern.rotate();
+  mDrawPattern.Rotate();
 }
 
 void GLCanvas::Step()
 {
-  mPBOs[mFrontBufferIdx]->mapCudaResource();
-  mPBOs[mBackBufferIdx]->mapCudaResource();
-  uint8_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->getCudaMappedPointer();
-  uint8_t* mappedBackPtr = mPBOs[mBackBufferIdx]->getCudaMappedPointer();
-  RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->width(), mTextures.front()->height() );
-  mPBOs[mFrontBufferIdx]->unmapCudaResource();
-  mPBOs[mBackBufferIdx]->unmapCudaResource();
+  mPBOs[mFrontBufferIdx]->MapCudaResource();
+  mPBOs[mBackBufferIdx]->MapCudaResource();
+  uint32_t* mappedFrontPtr = mPBOs[mFrontBufferIdx]->GetCudaMappedPointer();
+  uint32_t* mappedBackPtr = mPBOs[mBackBufferIdx]->GetCudaMappedPointer();
+  RunStepKernel( mappedFrontPtr, mappedBackPtr, mTextures.front()->Width(), mTextures.front()->Height(), mPrimaryColor, mSecondaryColor );
+  mPBOs[mFrontBufferIdx]->UnmapCudaResource();
+  mPBOs[mBackBufferIdx]->UnmapCudaResource();
 
   std::swap( mFrontBufferIdx, mBackBufferIdx );
 
-  mPBOs[mFrontBufferIdx]->bindPbo();
-  mTextures.front()->bind();
-  mTextures.front()->updateFromPBO();
-  mTextures.front()->unbind();
-  mPBOs[mFrontBufferIdx]->unbindPbo();
+  mPBOs[mFrontBufferIdx]->BindPbo();
+  mTextures.front()->Bind();
+  mTextures.front()->UpdateFromPBO();
+  mTextures.front()->Unbind();
+  mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
 }
@@ -630,29 +677,75 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
   SetCurrent( *mContext );
 
   glClearColor( 0.1f, 0.1f, 0.1f, 1.0f );
+  glEnable( GL_BLEND );
+  glBlendEquation( GL_FUNC_ADD );
+  glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
   glClear( GL_COLOR_BUFFER_BIT );
 
-  glBindVertexArray( mVao );
-  glUseProgram( mShaderProgram );
+  // draw world
+  {
+    glUseProgram( mShaderProgram );
+  
+    const math::mat4 vpMatrix( mProjectionMatrix * mViewMatrix );
+    const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
+    glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
+  
+    mMeshes[0]->Bind();
+    mTextures[0]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
+  
+    glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // TODO textureData at location 0. Should the Mesh do this instead
+  
+    mMeshes[0]->Render();
+  
+    mTextures[0]->UnbindTextureUnit();
+    mMeshes[0]->Unbind();
+  
+    glUseProgram( 0 );
+  }
 
-  const math::mat4 vpMatrix = mProjectionMatrix * mViewMatrix;
-  const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer
-  glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
+  // draw pixel grid if needed
+  if ( mDrawPixelGrid )
+  {
+    glUseProgram( mShaderProgram );
 
-  mTextures.front()->bindTextureUnit( 0 );
-  mTextures.back()->bindTextureUnit( 1 );
+    const math::mat4 vpMatrix( mProjectionMatrix * mViewMatrix );
+    const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
+    glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
 
-  glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // TODO do it nicer
-  glUniform1i( glGetUniformLocation( mShaderProgram, "checkerboardData" ), 1 ); // TODO do it nicer
-  glUniform1i( glGetUniformLocation( mShaderProgram, "isCheckerboard" ), mDrawPixelGrid ? 1 : 0 ); // TODO do it nicer
+    mMeshes[1]->Bind();
+    mTextures[1]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
 
-  glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );  // 6 = index count
+    glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
 
-  mTextures.front()->unbindTextureUnit();
-  mTextures.back()->unbindTextureUnit();
+    mMeshes[1]->Render();
 
-  glBindVertexArray( 0 );
-  glUseProgram( 0 );
+    mTextures[1]->UnbindTextureUnit();
+    mMeshes[1]->Unbind();
+
+    glUseProgram( 0 );
+  }
+
+  // draw current pattern
+  if ( false )
+  {
+    //glUseProgram( mShaderProgram );
+
+    //const math::mat4 vpMatrix = mProjectionMatrix * mViewMatrix;  // TODO model matrix will be needed to rotate the pattern quad!
+    //const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
+    //glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
+
+    //mMeshes[0]->Bind();
+    //mTextures[0]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
+    //
+    //glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
+    //
+    //mMeshes[0]->Render();
+    //
+    //mTextures[0]->UnbindTextureUnit();
+    //mMeshes[0]->Unbind();
+    //
+    //glUseProgram( 0 );
+  }
 
   SwapBuffers();
 }

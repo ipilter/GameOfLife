@@ -16,32 +16,36 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
 {
   try
   {
-    logger::Logger::instance() << __FUNCTION__ << "\n";
+    logger::Logger::Instance() << __FUNCTION__ << "\n";
 
-    auto* mainPanel = new wxPanel( this, wxID_ANY );
+    wxPanel* mainPanel = new wxPanel( this, wxID_ANY );
     mLogTextBox = new wxTextCtrl( mainPanel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE );
     mGLCanvas = new GLCanvas( textureSize, mainPanel, wxID_ANY );
 
-    auto* mainSizer = new wxBoxSizer( wxVERTICAL );
+    wxBoxSizer* mainSizer = new wxBoxSizer( wxVERTICAL );
     mainSizer->Add( mGLCanvas, 90, wxEXPAND );
     mainSizer->Add( mLogTextBox, 10, wxEXPAND );
     mainPanel->SetSizer( mainSizer );
 
-    auto* controlPanel = new wxPanel( this, wxID_ANY );
-    auto* resetBtn = new wxButton( controlPanel, wxID_ANY, "Reset" );
-    auto* startBtn = new wxButton( controlPanel, wxID_ANY, "Start" );
-    auto* stopBtn = new wxButton( controlPanel, wxID_ANY, "Stop" );
-    auto* randomBtn = new wxButton( controlPanel, wxID_ANY, "Random" );
+    wxPanel* controlPanel = new wxPanel( this, wxID_ANY );
+    wxButton* resetBtn = new wxButton( controlPanel, wxID_ANY, "Reset" );
+    wxButton* startBtn = new wxButton( controlPanel, wxID_ANY, "Start" );
+    wxButton* stopBtn = new wxButton( controlPanel, wxID_ANY, "Stop" );
+    wxButton* randomBtn = new wxButton( controlPanel, wxID_ANY, "Random" );
     mPrimaryColorButton = new wxButton( controlPanel, wxID_ANY );
-    mPrimaryColorButton->SetBackgroundColour( wxColor( mGLCanvas->GetPrimaryColor().x, mGLCanvas->GetPrimaryColor().y, mGLCanvas->GetPrimaryColor().z ) );
+    mPrimaryColorButton->SetBackgroundColour( wxColor( util::Component(mGLCanvas->GetPrimaryColor(), 0)
+                                                       , util::Component(mGLCanvas->GetPrimaryColor(), 1)
+                                                       , util::Component(mGLCanvas->GetPrimaryColor(), 2) ) );
     
     mSecondaryColorButton = new wxButton( controlPanel, wxID_ANY );
-    mSecondaryColorButton->SetBackgroundColour( wxColor( mGLCanvas->GetSecondaryColor().x, mGLCanvas->GetSecondaryColor().y, mGLCanvas->GetSecondaryColor().z ) );
+    mSecondaryColorButton->SetBackgroundColour( wxColor( util::Component(mGLCanvas->GetSecondaryColor(), 0)
+                                                         , util::Component(mGLCanvas->GetSecondaryColor(), 1)
+                                                         , util::Component(mGLCanvas->GetSecondaryColor(), 2) ) );
 
     mPatternComboBox = new wxComboBox( controlPanel, wxID_ANY );
     mPatternComboBox->Bind( wxEVT_COMBOBOX_CLOSEUP, &MainFrame::OnPatternComboBox, this );
-    
-    mDeltaTimeSlider = new wxSlider( controlPanel, wxID_ANY, 10, 1, 100 );
+
+    mDeltaTimeSlider = new wxSlider( controlPanel, wxID_ANY, 50, 1, 500 );  // ms
     mDeltaTimeSlider->Bind( wxEVT_SLIDER, &MainFrame::OnSlider, this );
 
     mPixelGridCheckBox = new wxCheckBox( controlPanel, wxID_ANY, "Pixel Grid" );
@@ -53,15 +57,14 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     mPrimaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnPrimaryColorButton, this );
     mSecondaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnSecondaryColorButton, this );
 
-    auto percentage = mDeltaTimeSlider->GetValue() / 100.0f;
-    mGLCanvas->SetDeltaTime( ( 500u - 0u ) * percentage ); // TODO fix
+    mGLCanvas->SetDeltaTime( mDeltaTimeSlider->GetValue() );
 
     mPixelGridCheckBox->Bind( wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::OnPixelCheckBox, this ); 
     mPixelGridCheckBox->SetForegroundColour( wxColor( 255, 255, 255 ) );
     mPixelGridCheckBox->SetValue( true );
     mGLCanvas->SetDrawPixelGrid( mPixelGridCheckBox->IsChecked() );
 
-    auto* controlSizer = new wxBoxSizer( wxVERTICAL ); // TODO List of controls instead these
+    wxBoxSizer* controlSizer = new wxBoxSizer( wxVERTICAL ); // TODO List of controls instead these
     controlSizer->Add( resetBtn, 0, wxEXPAND );
     controlSizer->Add( startBtn, 0, wxEXPAND );
     controlSizer->Add( stopBtn, 0, wxEXPAND );
@@ -73,7 +76,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     controlSizer->Add( mPixelGridCheckBox, 0, wxEXPAND );
     controlPanel->SetSizer( controlSizer );
 
-    auto* sizer = new wxBoxSizer( wxHORIZONTAL );
+    wxBoxSizer* sizer = new wxBoxSizer( wxHORIZONTAL );
     sizer->Add( mainPanel, 1, wxEXPAND );
     sizer->Add( controlPanel, 0, wxEXPAND );
 
@@ -85,31 +88,32 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
 
     for ( uint32_t idx = 0; idx < mGLCanvas->GetPatternCount(); ++idx )
     {
-      mPatternComboBox->Append( mGLCanvas->GetPattern( idx ).name() );
+      mPatternComboBox->Append( mGLCanvas->GetPattern( idx ).GetName() );
     }
     mPatternComboBox->SetSelection( 0 );
     mGLCanvas->SetCurrentPattern( 0 );
   }
   catch ( const std::exception& e )
   {
-    logger::Logger::instance() << "MainFrame construction error: " << e.what() << "\n";
+    logger::Logger::Instance() << "MainFrame construction error: " << e.what() << "\n";
   }
   
   std::stringstream ss;
   ss << "GLCanvas window size: " << math::vec2( GetSize().GetWidth(), GetSize().GetHeight() );
   AddLogMessage( ss.str() );
 
-  logger::Logger::instance() << ss.str() << "\n";
+  logger::Logger::Instance() << ss.str() << "\n";
 }
 
 MainFrame::~MainFrame()
 {
-  logger::Logger::instance() << __FUNCTION__ << "\n";
+  logger::Logger::Instance() << __FUNCTION__ << "\n";
 }
 
 void MainFrame::AddLogMessage( const std::string& msg )
 {
   mLogTextBox->WriteText( ( msg + "\n" ) );
+  logger::Logger::Instance() << msg << "\n";
 }
 
 void MainFrame::OnStartButton( wxCommandEvent& /*event*/ )
@@ -153,18 +157,18 @@ void MainFrame::OnRandomButton( wxCommandEvent& event )
 
 void MainFrame::OnPrimaryColorButton( wxCommandEvent& event )
 {
-  const auto color( wxGetColourFromUser( this, wxColor( mGLCanvas->GetPrimaryColor().x, mGLCanvas->GetPrimaryColor().y, mGLCanvas->GetPrimaryColor().z ) ) );
-  mPrimaryColorButton->SetBackgroundColour( color );
-
-  mGLCanvas->SetPrimaryColor( math::uvec3( color.Red(), color.Green(), color.Blue() ) );
+  const uint32_t pc = mGLCanvas->GetPrimaryColor();
+  const wxColour wxc( wxGetColourFromUser( this, wxColor( util::Component( pc, 0 ), util::Component( pc, 1 ), util::Component( pc, 2 ) ) ) );
+  mPrimaryColorButton->SetBackgroundColour( wxc );
+  mGLCanvas->SetPrimaryColor( util::Color( wxc.Red(), wxc.Green(), wxc.Blue(), util::Component( pc, 3 ) ) );
 }
 
 void MainFrame::OnSecondaryColorButton( wxCommandEvent& event )
 {
-  const auto color( wxGetColourFromUser( this, wxColor( mGLCanvas->GetSecondaryColor().x, mGLCanvas->GetSecondaryColor().y, mGLCanvas->GetSecondaryColor().z ) ) );
-  mSecondaryColorButton->SetBackgroundColour( color );
-
-  mGLCanvas->SetSecondaryColor( math::uvec3( color.Red(), color.Green(), color.Blue() ) );
+  const uint32_t sc = mGLCanvas->GetSecondaryColor();
+  const wxColour wxc( wxGetColourFromUser( this, wxColor( util::Component( sc, 0 ), util::Component( sc, 1 ), util::Component( sc, 2 ) ) ) );
+  mSecondaryColorButton->SetBackgroundColour( wxc );
+  mGLCanvas->SetSecondaryColor( util::Color( wxc.Red(), wxc.Green(), wxc.Blue(), util::Component( sc, 3 ) ) );
 }
 
 void MainFrame::OnPatternComboBox( wxCommandEvent& /*event*/ )
@@ -174,9 +178,7 @@ void MainFrame::OnPatternComboBox( wxCommandEvent& /*event*/ )
 
 void MainFrame::OnSlider( wxCommandEvent& event )
 {
-  // TODO redundant and not correct
-  auto percentage = mDeltaTimeSlider->GetValue() / 100.0f;
-  mGLCanvas->SetDeltaTime( ( 500u - 0u ) * percentage );
+  mGLCanvas->SetDeltaTime( mDeltaTimeSlider->GetValue() );
 }
 
 void MainFrame::OnPixelCheckBox( wxCommandEvent& event )

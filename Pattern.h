@@ -16,19 +16,19 @@ public:
   Pattern();
   Pattern( const std::string& name, const uint32_t w, const uint32_t h, const std::vector<bool>& bits );
 
-  bool at( const uint32_t x, const uint32_t y ) const;
-  const std::string& name() const;
-  uint32_t width() const;
-  uint32_t height() const;
+  bool At( const uint32_t x, const uint32_t y ) const;
+  const std::string& GetName() const;
+  void SetName( const std::string& name );
+  uint32_t Width() const;
+  uint32_t Height() const;
 
-  void write( std::ofstream& stream );
-  void read( std::ifstream& stream );
+  void Write( std::ofstream& stream );
+  void Read( std::ifstream& stream );
 
-  void rotate();
-  void setName( const std::string& name );
+  void Rotate();
 
 protected:
-  Bits& bits();
+  Bits& GetBits();
 
 private:
   std::string mName = "";

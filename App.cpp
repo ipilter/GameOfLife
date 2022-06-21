@@ -11,7 +11,7 @@ bool App::OnInit()
 {
   wxApp::OnInit();
 
-  logger::Logger::instance() << __FUNCTION__ << "\n";
+  logger::Logger::Instance() << __FUNCTION__ << "\n";
 
   Bind( wxEVT_KEY_DOWN, &App::OnKey, this );
 
@@ -21,7 +21,7 @@ bool App::OnInit()
 
 int32_t App::OnExit()
 {
-  logger::Logger::instance() << __FUNCTION__ << "\n";
+  logger::Logger::Instance() << __FUNCTION__ << "\n";
 
   mMainFrame->GetAccessible();
   return 1;

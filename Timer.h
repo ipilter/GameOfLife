@@ -11,13 +11,13 @@ public:
   Timer();
 
 public:
-  void start();
-  void stop();
+  void Start();
+  void Stop();
 
 public:
-  double us( void );
-  double ms( void );
-  double s( void );
+  double Us( void );
+  double Ms( void );
+  double S( void );
 
 private:
   detail::TimerImpl* m_pImpl;

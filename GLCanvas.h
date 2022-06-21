@@ -10,6 +10,7 @@
 #include "Pattern.h"
 #include "Texture.h"
 #include "PixelBufferObject.h"
+#include "Mesh.h"
 
 class GLCanvas : public wxGLCanvas
 {
@@ -43,10 +44,10 @@ public:
   GLCanvas& operator = ( const GLCanvas& ) = delete;
   GLCanvas& operator = ( GLCanvas&& ) = delete;
 
-  void SetPrimaryColor( const math::uvec3& color );
-  const math::uvec3& GetPrimaryColor() const;
-  void SetSecondaryColor( const math::uvec3& color );
-  const math::uvec3& GetSecondaryColor() const;
+  void SetPrimaryColor( const uint32_t color );
+  const uint32_t GetPrimaryColor() const;
+  void SetSecondaryColor( const uint32_t color );
+  const uint32_t GetSecondaryColor() const;
 
   void SetCurrentPattern( const uint32_t idx );
   uint32_t GetPatternCount() const;
@@ -66,6 +67,7 @@ private:
   void CreateShaderProgram();
   void CreateTextures();
   uint32_t CreateShader( uint32_t kind, const std::string& src );
+  void CreatePatterns();
 
   math::vec2 ScreenToWorld( const math::ivec2& screenSpacePoint );
   math::ivec2 WorldToImage( const math::vec2& worldSpacePoint );
@@ -96,9 +98,7 @@ private:
   uint32_t mTexturePatternSize;
 
   // mesh
-  uint32_t mVbo = 0;
-  uint32_t mIbo = 0;
-  uint32_t mVao = 0;
+  std::vector<Mesh::Ptr> mMeshes;
 
   // textures
   std::vector<Texture::Ptr> mTextures;
@@ -121,13 +121,13 @@ private:
   bool mPanningActive = false;
   math::vec2 mPreviousMousePosition = math::vec2( 0.0 );
   bool mDrawingActive = false;
-  math::uvec3 mPrimaryColor = math::uvec3( 255, 255, 255 );
-  math::uvec3 mSecondaryColor = math::uvec3( 0, 0, 0 );
-  math::uvec3 mCurrentDrawingColor = math::uvec3( 255, 255, 255 ); // TODO index in an array instead
+  uint32_t mPrimaryColor = 0;
+  uint32_t mSecondaryColor = 0;
+  uint32_t mCurrentDrawingColor = 0; // TODO index in an array instead
 
   // patterns
   std::vector<Pattern::Ptr> mDrawPatterns;
-  Pattern mDrawPattern;
+  Pattern mDrawPattern; // current patern used by SetPixel. Copied as it can be rotated
   bool mDrawPixelGrid = false;
 
   // step timer
