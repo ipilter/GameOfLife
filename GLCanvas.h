@@ -62,7 +62,10 @@ public:
   void SetDeltaTime( const uint32_t dt );
 
 private:
-  void InitializeGLEW();
+  void InitializeEventHandlers();
+  void InitializeGL();
+  void InitializeCuda();
+  void CreatePixelBuffers();
   void CreateGeometry();
   void CreateShaderProgram();
   void CreateTextures();

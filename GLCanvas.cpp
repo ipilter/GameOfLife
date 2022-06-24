@@ -30,80 +30,17 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   , mSecondaryColor ( util::Color( 0, 0, 0 ) )
   , mCurrentDrawingColor ( util::Color( 255, 255, 255 ) ) // TODO index in an array instead
 {
-  wxGLContextAttrs contextAttrs;
-  contextAttrs.CoreProfile().OGLVersion( 4, 5 ).Robust().ResetIsolation().EndList();
-  mContext = std::make_unique<wxGLContext>( this, nullptr, &contextAttrs );
-
-  Bind( wxEVT_SIZE, &GLCanvas::OnSize, this );
-  Bind( wxEVT_PAINT, &GLCanvas::OnPaint, this );
-  Bind( wxEVT_RIGHT_DOWN, &GLCanvas::OnMouseRightDown, this );
-  Bind( wxEVT_RIGHT_UP, &GLCanvas::OnMouseRightUp, this );
-  Bind( wxEVT_MIDDLE_DOWN, &GLCanvas::OnMouseMiddleDown, this );
-  Bind( wxEVT_MIDDLE_UP, &GLCanvas::OnMouseMiddleUp, this );
-  Bind( wxEVT_LEFT_DOWN, &GLCanvas::OnMouseLeftDown, this );
-  Bind( wxEVT_LEFT_UP, &GLCanvas::OnMouseLeftUp, this );
-  Bind( wxEVT_MOTION, &GLCanvas::OnMouseMove, this );
-  Bind( wxEVT_LEAVE_WINDOW, &GLCanvas::OnMouseLeave, this );
-  Bind( wxEVT_MOUSEWHEEL, &GLCanvas::OnMouseWheel, this );
-  Bind( wxEVT_KEY_DOWN, &GLCanvas::OnKeyDown, this );
-
-  SetCurrent( *mContext );
-
-  // OpenGL
-  InitializeGLEW();
-
-  // Cuda
-  cudaError_t error_test = cudaSuccess;
-
-  int32_t gpuCount = 0;
-  error_test = cudaGetDeviceCount( &gpuCount );
-  if ( error_test != cudaSuccess )
-  {
-    throw std::runtime_error( "cudaGetDeviceCount failed" );
-  }
-
-  cudaDeviceProp prop = { 0 };
-  int32_t gpuId = 0;
-  error_test = cudaGetDeviceProperties( &prop, gpuId );
-  if ( error_test != cudaSuccess )
-  {
-    throw std::runtime_error( "cudaGetDeviceProperties failed" );
-  }
-
-  error_test = cudaGLSetGLDevice( gpuId );
-  if ( error_test != cudaSuccess )
-  {
-    throw std::runtime_error( "cudaGLSetGLDevice failed" );
-  }
-
-  // create PBOs
-  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
-  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
-  mFrontBufferIdx = 0;
-  mBackBufferIdx = 1;
-
-  // stuff
-  int32_t maxTextureSize = 0;
-  glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
-  logger::Logger::Instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
-  mTextureSize = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) ); // nxn pixels
-  mTexturePatternSize = 10; // nxn pixels
-
+  InitializeEventHandlers();
+  InitializeGL();
+  InitializeCuda();
+  CreatePatterns();
   CreateGeometry();
-  CreateShaderProgram();
+  CreatePixelBuffers();
   CreateTextures();
 
-  int32_t pboAlignment = -1;
-  glGetIntegerv(GL_UNPACK_ALIGNMENT, &pboAlignment);
-  logger::Logger::Instance() << "pbo alignment " << pboAlignment << "\n";
+  CreateShaderProgram();
 
-  // view
   mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 5.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
-
-  // patterns
-  CreatePatterns();
-
-  // step timer
   mStepTimer = std::make_unique<StepTimer>( this );
 }
 
@@ -169,8 +106,32 @@ void GLCanvas::SetDrawPixelGrid( const bool drawPixelGrid )
   Refresh();
 }
 
-void GLCanvas::InitializeGLEW()
+void GLCanvas::InitializeEventHandlers()
 {
+  Bind( wxEVT_SIZE, &GLCanvas::OnSize, this );
+  Bind( wxEVT_PAINT, &GLCanvas::OnPaint, this );
+  Bind( wxEVT_RIGHT_DOWN, &GLCanvas::OnMouseRightDown, this );
+  Bind( wxEVT_RIGHT_UP, &GLCanvas::OnMouseRightUp, this );
+  Bind( wxEVT_MIDDLE_DOWN, &GLCanvas::OnMouseMiddleDown, this );
+  Bind( wxEVT_MIDDLE_UP, &GLCanvas::OnMouseMiddleUp, this );
+  Bind( wxEVT_LEFT_DOWN, &GLCanvas::OnMouseLeftDown, this );
+  Bind( wxEVT_LEFT_UP, &GLCanvas::OnMouseLeftUp, this );
+  Bind( wxEVT_MOTION, &GLCanvas::OnMouseMove, this );
+  Bind( wxEVT_LEAVE_WINDOW, &GLCanvas::OnMouseLeave, this );
+  Bind( wxEVT_MOUSEWHEEL, &GLCanvas::OnMouseWheel, this );
+  Bind( wxEVT_KEY_DOWN, &GLCanvas::OnKeyDown, this );
+}
+
+void GLCanvas::InitializeGL()
+{
+  wxGLContextAttrs contextAttrs;
+  contextAttrs.CoreProfile().OGLVersion( 4, 5 ).Robust().ResetIsolation().EndList();
+  mContext = std::make_unique<wxGLContext>( this, nullptr, &contextAttrs );
+  if ( !SetCurrent( *mContext ) )
+  {
+    throw std::exception( "Cannot set GL context" );
+  }
+
   glewExperimental = false;
   GLenum err = glewInit();
   if ( err != GLEW_OK )
@@ -181,6 +142,56 @@ void GLCanvas::InitializeGLEW()
 
   const bool fp64( glewGetExtension( "GL_ARB_gpu_shader_fp64" ) );
   logger::Logger::Instance() << "GL_ARB_gpu_shader_fp64 " << ( fp64 == 1 ? "supported" : "not supported" ) << "\n";
+
+  int32_t maxTextureSize = 0;
+  glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
+  logger::Logger::Instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
+  mTextureSize = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) ); // nxn pixels
+  mTexturePatternSize = 10; // nxn pixels
+}
+
+void GLCanvas::InitializeCuda()
+{
+  cudaError_t error_test = cudaSuccess;
+
+  int32_t gpuCount = 0;
+  error_test = cudaGetDeviceCount( &gpuCount );
+  if ( error_test != cudaSuccess )
+  {
+    throw std::runtime_error( "cudaGetDeviceCount failed" );
+  }
+
+  cudaDeviceProp prop = { 0 };
+  int32_t gpuId = 0;
+  error_test = cudaGetDeviceProperties( &prop, gpuId );
+  if ( error_test != cudaSuccess )
+  {
+    throw std::runtime_error( "cudaGetDeviceProperties failed" );
+  }
+
+  error_test = cudaGLSetGLDevice( gpuId );
+  if ( error_test != cudaSuccess )
+  {
+    throw std::runtime_error( "cudaGLSetGLDevice failed" );
+  }
+}
+
+void GLCanvas::CreatePixelBuffers()
+{
+  int32_t pboAlignment = -1;
+  glGetIntegerv( GL_UNPACK_ALIGNMENT, &pboAlignment );
+  if ( pboAlignment != 4 )
+  {
+    std::stringstream ss;
+    ss << "invalid PBO alignment: " << pboAlignment;
+    throw std::runtime_error( ss.str() );
+  }
+
+  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mFrontBufferIdx = mPBOs.size() - 1;
+
+  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mBackBufferIdx = mPBOs.size() - 1;
 }
 
 void GLCanvas::CreateGeometry()
@@ -321,7 +332,7 @@ void GLCanvas::CreateTextures()
   {
     mTextures.push_back( std::make_unique<Texture>( mTextureSize, mTextureSize ) );
 
-    const size_t pixelCount = mTextures.front()->Width() * mTextures.front()->Height();
+    const size_t pixelCount = mTextures.front()->Width() * static_cast<size_t>( mTextures.front()->Height() );
     const size_t byteCount = pixelCount * sizeof( uint32_t );
 
     // allocate PBO pixels
