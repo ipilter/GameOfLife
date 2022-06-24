@@ -24,8 +24,6 @@ class GLCanvas : public wxGLCanvas
     GLCanvas* mParent;
   };
 
-  friend class StepTimer;
-
 public:
   GLCanvas( const uint32_t textureSize
             , wxWindow* parent
@@ -67,7 +65,7 @@ private:
   void InitializeCuda();
   void CreatePixelBuffers();
   void CreateGeometry();
-  void CreateShaderProgram();
+  void CreateShaders();
   void CreateTextures();
   uint32_t CreateShader( uint32_t kind, const std::string& src );
   void CreatePatterns();
@@ -123,14 +121,29 @@ private:
   // control
   bool mPanningActive = false;
   math::vec2 mPreviousMousePosition = math::vec2( 0.0 );
+  math::vec2 mCurrentMouseWorldPosition = math::vec2( 0.0 );
   bool mDrawingActive = false;
   uint32_t mPrimaryColor = 0;
   uint32_t mSecondaryColor = 0;
   uint32_t mCurrentDrawingColor = 0; // TODO index in an array instead
 
   // patterns
-  std::vector<Pattern::Ptr> mDrawPatterns;
-  Pattern mDrawPattern; // current patern used by SetPixel. Copied as it can be rotated
+  struct PatternInfo
+  {
+    using Ptr = std::unique_ptr<PatternInfo>;
+
+    explicit PatternInfo( Pattern::Ptr&& pattern )
+      : mTextureIdx( -1 )
+      , mMeshIdx( -1 )
+      , mPattern( std::move( pattern ) )
+    {}
+
+    uint32_t mTextureIdx;
+    uint32_t mMeshIdx;
+    Pattern::Ptr mPattern;
+  };
+  std::vector<PatternInfo::Ptr> mDrawPatterns;
+  uint32_t mDrawPatternIdx; // current patern used by SetPixel. Copied as it can be rotated
   bool mDrawPixelGrid = false;
 
   // step timer
