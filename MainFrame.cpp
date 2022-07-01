@@ -28,9 +28,8 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     mainPanel->SetSizer( mainSizer );
 
     wxPanel* controlPanel = new wxPanel( this, wxID_ANY );
-    wxButton* resetBtn = new wxButton( controlPanel, wxID_ANY, "Reset" );
-    wxButton* startBtn = new wxButton( controlPanel, wxID_ANY, "Start" );
-    wxButton* stopBtn = new wxButton( controlPanel, wxID_ANY, "Stop" );
+    wxButton* resetBtn = new wxButton( controlPanel, wxID_ANY, "Clear" );
+    mStartStopButton = new wxButton( controlPanel, wxID_ANY, "Start" );
     wxButton* randomBtn = new wxButton( controlPanel, wxID_ANY, "Random" );
     mPrimaryColorButton = new wxButton( controlPanel, wxID_ANY );
     mPrimaryColorButton->SetBackgroundColour( wxColor( util::Component(mGLCanvas->GetPrimaryColor(), 0)
@@ -50,9 +49,8 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
 
     mPixelGridCheckBox = new wxCheckBox( controlPanel, wxID_ANY, "Pixel Grid" );
 
-    resetBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnResetButton, this );
-    startBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnStartButton, this );
-    stopBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnStopButton, this );
+    resetBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnClearButton, this );
+    mStartStopButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnStartStopButton, this );
     randomBtn->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnRandomButton, this );
     mPrimaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnPrimaryColorButton, this );
     mSecondaryColorButton->Bind( wxEVT_COMMAND_BUTTON_CLICKED, &MainFrame::OnSecondaryColorButton, this );
@@ -66,8 +64,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
 
     wxBoxSizer* controlSizer = new wxBoxSizer( wxVERTICAL ); // TODO List of controls instead these
     controlSizer->Add( resetBtn, 0, wxEXPAND );
-    controlSizer->Add( startBtn, 0, wxEXPAND );
-    controlSizer->Add( stopBtn, 0, wxEXPAND );
+    controlSizer->Add( mStartStopButton, 0, wxEXPAND );
     controlSizer->Add( randomBtn, 0, wxEXPAND );
     controlSizer->Add( mPrimaryColorButton, 0, wxEXPAND );
     controlSizer->Add( mSecondaryColorButton, 0, wxEXPAND );
@@ -85,6 +82,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
     controlPanel->SetBackgroundColour( wxColor( 21, 21, 21 ) );
     mLogTextBox->SetBackgroundColour( wxColor( 21, 21, 21 ) );
     mLogTextBox->SetForegroundColour( wxColor( 180, 180, 180 ) );
+    mLogTextBox->SetFont(wxFont(wxFontInfo(12.0)));
 
     for ( uint32_t idx = 0; idx < mGLCanvas->GetPatternCount(); ++idx )
     {
@@ -116,21 +114,25 @@ void MainFrame::AddLogMessage( const std::string& msg )
   logger::Logger::Instance() << msg << "\n";
 }
 
-void MainFrame::OnStartButton( wxCommandEvent& /*event*/ )
+void MainFrame::OnStartStopButton( wxCommandEvent& /*event*/ )
 {
-  mGLCanvas->Start();
+  if ( mGLCanvas->IsRunning() )
+  {
+    mGLCanvas->Stop();
+    mStartStopButton->SetLabel("Start");
+  }
+  else
+  {
+    mGLCanvas->Start();
+    mStartStopButton->SetLabel("Stop");
+  }
 }
 
-void MainFrame::OnStopButton(wxCommandEvent& /*event*/)
-{
-  mGLCanvas->Stop();
-}
-
-void MainFrame::OnResetButton(wxCommandEvent& /*event*/)
+void MainFrame::OnClearButton(wxCommandEvent& /*event*/)
 {
   try
   {
-    mGLCanvas->Reset();
+    mGLCanvas->Clear();
   }
   catch ( const std::exception& e )
   {

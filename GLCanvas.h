@@ -52,12 +52,13 @@ public:
   const Pattern& GetPattern( const uint32_t idx ) const;
   void SetDrawPixelGrid( const bool drawPixelGrid );
 
-  void Reset();
+  void Clear();
   void Random();
   void RotatePattern();
   void Start();
   void Stop();
   void SetDeltaTime( const uint32_t dt );
+  bool IsRunning() const;
 
 private:
   void InitializeEventHandlers();
@@ -89,6 +90,8 @@ private:
   void OnMouseWheel( wxMouseEvent& event );
   void OnKeyDown( wxKeyEvent& event );
   void OnStepTimer();
+
+  void Log( const std::string& msg );
 
   // opengl context
   std::unique_ptr<wxGLContext> mContext;
@@ -128,6 +131,7 @@ private:
   uint32_t mCurrentDrawingColor = 0; // TODO index in an array instead
 
   // patterns
+  bool mDrawPixelGrid = false;
   struct PatternInfo
   {
     using Ptr = std::unique_ptr<PatternInfo>;
@@ -144,7 +148,6 @@ private:
   };
   std::vector<PatternInfo::Ptr> mDrawPatterns;
   uint32_t mDrawPatternIdx; // current patern used by SetPixel. Copied as it can be rotated
-  bool mDrawPixelGrid = false;
 
   // step timer
   bool mStepTimerRuning = false;

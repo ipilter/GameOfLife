@@ -44,21 +44,6 @@ Pattern::Bits& Pattern::GetBits()
   return mBits;
 }
 
-void Pattern::Write( std::ofstream& stream )
-{
-  util::Write_t( stream, mWidth );
-  util::Write_t( stream, mHeight );
-  util::Write_t( stream, mName );
-  util::Write_t( stream, mBits );
-}
-
-void Pattern::Read( std::ifstream& stream )
-{
-  util::Read_t<uint32_t>( stream, mWidth );
-  util::Read_t<uint32_t>( stream, mHeight );
-  util::Read_t<>( stream, mName );
-  util::Read_t<>( stream, mBits );
-}
 
 void Pattern::Rotate()
 {
@@ -74,4 +59,31 @@ void Pattern::Rotate()
       mBits[i + j * mWidth] = old.mBits[( old.mWidth - 1 - j ) + i * old.mWidth];
     }
   }
+
+  mRotation += 90.0f;
+  if ( mRotation > 270.0f ) // do 360 or 0 not both!
+  {
+    mRotation = 0.0f;
+  }
+}
+
+const float& Pattern::GetRotation() const
+{
+  return mRotation;
+}
+
+void Pattern::Write( std::ofstream& stream )
+{
+  util::Write_t( stream, mWidth );
+  util::Write_t( stream, mHeight );
+  util::Write_t( stream, mName );
+  util::Write_t( stream, mBits );
+}
+
+void Pattern::Read( std::ifstream& stream )
+{
+  util::Read_t<uint32_t>( stream, mWidth );
+  util::Read_t<uint32_t>( stream, mHeight );
+  util::Read_t<>( stream, mName );
+  util::Read_t<>( stream, mBits );
 }

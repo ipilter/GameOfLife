@@ -13,9 +13,8 @@ public:
   void AddLogMessage( const std::string& msg );
 
 private:
-  void OnStartButton( wxCommandEvent& event );
-  void OnStopButton( wxCommandEvent& event );
-  void OnResetButton( wxCommandEvent& event );
+  void OnStartStopButton( wxCommandEvent& event );
+  void OnClearButton( wxCommandEvent& event );
   void OnRandomButton( wxCommandEvent& event );
   void OnPrimaryColorButton( wxCommandEvent& event );
   void OnSecondaryColorButton( wxCommandEvent& event );
@@ -25,6 +24,7 @@ private:
 
 private:
   GLCanvas* mGLCanvas;
+  wxButton* mStartStopButton;
   wxButton* mPrimaryColorButton;
   wxButton* mSecondaryColorButton;
   wxComboBox* mPatternComboBox;
