@@ -39,7 +39,7 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   CreateGeometry();
   CreateShaders();
 
-  mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 2.0 ) ), math::vec3( -mQuadSize / 2.0f, -mQuadSize / 2.0f, 0.0f ) ); // at center zoom level 5
+  mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 21.0 ) ), math::vec3( -mQuadSize / 2.0f, -mQuadSize / 2.0f, 0.0f ) ); // at center zoom level 5
   mStepTimer = std::make_unique<StepTimer>( this );
 }
 
@@ -118,6 +118,7 @@ void GLCanvas::InitializeEventHandlers()
   Bind( wxEVT_LEFT_UP, &GLCanvas::OnMouseLeftUp, this );
   Bind( wxEVT_MOTION, &GLCanvas::OnMouseMove, this );
   Bind( wxEVT_LEAVE_WINDOW, &GLCanvas::OnMouseLeave, this );
+  Bind( wxEVT_ENTER_WINDOW, &GLCanvas::OnMouseEnter, this );
   Bind( wxEVT_MOUSEWHEEL, &GLCanvas::OnMouseWheel, this );
   Bind( wxEVT_KEY_DOWN, &GLCanvas::OnKeyDown, this );
 }
@@ -442,7 +443,7 @@ void GLCanvas::CreatePatterns()
     size_t count = 0;
     util::Read_t( patternsStream, count );
     mDrawPatterns.resize( count );
-    for( size_t i(0); i < count; ++i )
+    for ( size_t i( 0 ); i < count; ++i )
     {
       mDrawPatterns[i] = std::make_unique<PatternInfo>( PatternInfo( std::make_unique<Pattern>() ) );
       mDrawPatterns[i]->mPattern->Read( patternsStream );
@@ -450,51 +451,75 @@ void GLCanvas::CreatePatterns()
   }
   else
   {
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
-      1 } ) ) ) );
+    {
+      std::vector<bool> mask = std::vector<bool>{ 1 };
+      AddPattern( 1, 1, mask, "Pixel" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Block", 2, 2, std::vector<bool> {
-      1, 1,
-      1, 1 } ) ) ) );
+    {
+      const std::vector<bool> mask = {
+        1, 1,
+        1, 0 };
+      AddPattern( 2, 2, mask, "Block" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "BigBlock", 5, 5, std::vector<bool> {
-      1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1,
-      1, 1, 0, 1, 1,
-      1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1 } ) ) ) );
+    {
+      const std::vector<bool> mask = {
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 0, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1 };
+      AddPattern( 5, 5, mask, "BigBlock" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
-      0, 1, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 1, 0,
         0, 0, 1,
-        1, 1, 1 } ) ) ) );
+        1, 1, 1 };
+      AddPattern( 3, 3, mask, "Glider" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Eater", 4, 4, std::vector<bool> {
+    {
+      const std::vector<bool> mask = {
         1, 1, 0, 0,
         1, 0, 1, 0,
         0, 0, 1, 0,
-        0, 0, 1, 1 } ) ) ) );
+        0, 0, 1, 1 };
+      AddPattern( 4, 4, mask, "Eater" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
-      0, 0, 1, 1, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 0, 1, 1, 0,
         1, 1, 0, 1, 1,
         1, 1, 1, 1, 0,
-        0, 1, 1, 0, 0 } ) ) ) );
+        0, 1, 1, 0, 0 };
+      AddPattern( 5, 4, mask, "Lightweight Spaceship" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Middleweight Spaceship", 6, 4, std::vector<bool> {
-      0, 0, 0, 1, 1, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 0, 0, 1, 1, 0,
         1, 1, 1, 0, 1, 1,
         1, 1, 1, 1, 1, 0,
-        0, 1, 1, 1, 0, 0 } ) ) ) );
+        0, 1, 1, 1, 0, 0 };
+      AddPattern( 6, 4, mask, "Middleweight Spaceship" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Heavyweight Spaceship", 7, 4, std::vector<bool> {
-      0, 0, 0, 0, 1, 1, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 0, 0, 0, 1, 1, 0,
         1, 1, 1, 1, 0, 1, 1,
         1, 1, 1, 1, 1, 1, 0,
-        0, 1, 1, 1, 1, 0, 0 } ) ) ) );
+        0, 1, 1, 1, 1, 0, 0 };
+      AddPattern( 7, 4, mask, "Heavyweight Spaceship" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
@@ -502,10 +527,13 @@ void GLCanvas::CreatePatterns()
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) ) );
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+      AddPattern( 36, 9, mask, "Glider Gun" );
+    }
 
-    mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( "Unknown Ship", 34, 35, std::vector<bool> {
-      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    {
+      const std::vector<bool> mask = {
+        0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         0,1,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         1,0,0,1,1,1,1,1,1,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -539,7 +567,9 @@ void GLCanvas::CreatePatterns()
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 } ) ) ) );
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 };
+      AddPattern( 34, 35, mask, "Unknown Ship" );
+    }
   }
 }
 
@@ -591,16 +621,6 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
       poy -= toy;
     }
 
-    {
-      const math::vec2 pixelSize( mQuadSize / mTextures[0]->Width(), mQuadSize / mTextures[0]->Height() );
-      const math::vec2 roundedPosition( util::RoundToNearestMultiple( mCurrentMouseWorldPosition.x, pixelSize.x ), util::RoundToNearestMultiple( mCurrentMouseWorldPosition.y, pixelSize.y ) + pixelSize.y ); 
-
-
-      std::stringstream ss;
-      ss << "roundedPosition: " << roundedPosition << " tox: " << tox << " toy: " << toy << " pw: " << pw << " ph: " << ph << " pox: " << pox << " poy: " << poy << " rxmin: " << rxmin << " rxmax: " << rxmax << " rymin: " << rymin << " rymax: " << rymax;
-      Log( ss.str() );
-    }
-
     // update pixels in front PBO. y coordinates are from top to down in screen space
     mPBOs[mFrontBufferIdx]->BindPbo();
     uint32_t* pixelBuffer = mPBOs[mFrontBufferIdx]->MapPboBuffer();
@@ -635,6 +655,18 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     ss << "SetPixel error: " << e.what();
     Log( ss.str() );
   }
+}
+
+void GLCanvas::RotatePattern()
+{
+  mDrawPatterns[mDrawPatternIdx]->mPattern->Rotate();
+}
+
+void  GLCanvas::AddPattern( uint32_t w, uint32_t h, const std::vector<bool>& mask, const std::string& name ) // TODO template buffer
+{
+  std::vector<bool> initValue( w * h, 0 );
+  std::copy( mask.begin(), mask.end(), initValue.begin() );
+  mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( name, w, h, initValue ) ) ) );
 }
 
 void GLCanvas::Clear()
@@ -673,14 +705,6 @@ void GLCanvas::Random()
   mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
-}
-
-void GLCanvas::RotatePattern()
-{
-  mDrawPatterns[mDrawPatternIdx]->mPattern->Rotate();
-  std::stringstream ss;
-  ss << "mPattern->GetRotation: " << mDrawPatterns[mDrawPatternIdx]->mPattern->GetRotation();
-  Log( ss.str() );
 }
 
 void GLCanvas::Step()
@@ -794,19 +818,35 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
     if ( mViewMatrix[0][0] > 1.0f )
     {
       const math::vec2 pixelSize( mQuadSize / mTextures[0]->Width(), mQuadSize / mTextures[0]->Height() );
-      const math::vec2 halfPatternSize( ( mDrawPatterns[mDrawPatternIdx]->mPattern->Width() / 2.0f ) * pixelSize.x
-                                        , ( mDrawPatterns[mDrawPatternIdx]->mPattern->Height() / 2.0f ) * pixelSize.y );
-
       // TODO: on Y axis + pixelSize.y is because pattern quad y coords are negative to match with the pixel buffer setpixel Y axis direction (texture`s pixel Y direction). 
       // if setpixel updates the buffer with inverted Y direction all these magic (negative quad Y, + pixelSize.Y) are not needed!!
       const math::vec2 roundedPosition( util::RoundToNearestMultiple( mCurrentMouseWorldPosition.x, pixelSize.x ), util::RoundToNearestMultiple( mCurrentMouseWorldPosition.y, pixelSize.y ) + pixelSize.y ); 
 
-      // TODO if pattern dimension`s not equal the rotation center is wrong!
-      const math::mat4 tc = glm::translate( glm::identity<math::mat4>(), math::vec3( halfPatternSize.x, -halfPatternSize.y, 0.0f ) ); // ugly negative Y !!
-      const math::mat4 patternRotation = glm::rotate( glm::identity<math::mat4>(), glm::radians( mDrawPatterns[mDrawPatternIdx]->mPattern->GetRotation() ), math::vec3( 0.0f, 0.0f, 1.0f ) );
-      const math::mat4 to = glm::translate( glm::identity<math::mat4>(), math::vec3( -halfPatternSize.x, halfPatternSize.y, 0.0f ) ); // ugly negative Y !!
+      const uint32_t shortestPatternSize = std::min( mDrawPatterns[mDrawPatternIdx]->mPattern->Width(), mDrawPatterns[mDrawPatternIdx]->mPattern->Height() );
+      const uint32_t longestPatternSize = std::max( mDrawPatterns[mDrawPatternIdx]->mPattern->Width(), mDrawPatterns[mDrawPatternIdx]->mPattern->Height() );
+      math::vec2 shortestHalfSize( ( shortestPatternSize / 2.0f ) * pixelSize.x, ( shortestPatternSize / 2.0f ) * pixelSize.y );
+      math::vec2 longestSize( ( longestPatternSize ) * pixelSize.x, ( longestPatternSize ) * pixelSize.y );
+
+      // TODO: to simplify here do better roatation in SetPixel when applying the pattern to the world image
+      // due to the simple SetPixel rotated pattern apply method 90 and 180 degree rotations are just mirrored version of the pattern, not real rotation around the pattern? origin
+      // for now just hack it!
+      math::mat4 tspec = glm::translate( glm::identity<math::mat4>(), math::vec3( 0.0f ) ); // spec trans
+      float rotation = mDrawPatterns[mDrawPatternIdx]->mPattern->GetRotation();
+      if ( std::abs(rotation - 90.0f) < 0.00001f )
+      {
+        tspec = glm::translate( glm::identity<math::mat4>(), math::vec3( 0.0f, -longestSize.y + shortestPatternSize* pixelSize.y, 0.0f ) ); // ugly negative Y !!
+      }
+      else if (  std::abs( rotation - 180.0f ) < 0.00001f )
+      {
+        tspec = glm::translate( glm::identity<math::mat4>(), math::vec3( longestSize.x - shortestPatternSize * pixelSize.x, 0.0, 0.0f ) ); 
+      }
+
+      const math::mat4 tc = glm::translate( glm::identity<math::mat4>(), math::vec3( shortestHalfSize.x, -shortestHalfSize.y, 0.0f ) ); // ugly negative Y !!
+      const math::mat4 patternRotation = glm::rotate( glm::identity<math::mat4>(), glm::radians( rotation ), math::vec3( 0.0f, 0.0f, 1.0f ) );
+      const math::mat4 to = glm::translate( glm::identity<math::mat4>(), math::vec3( -shortestHalfSize.x, shortestHalfSize.y, 0.0f ) ); // ugly negative Y !!
       const math::mat4 toRoundedPos = glm::translate( glm::identity<math::mat4>(), math::vec3( roundedPosition, 0.0 ) );
-      const math::mat4 modelMatrix = toRoundedPos * tc * patternRotation * to;
+      const math::mat4 tl = glm::translate( glm::identity<math::mat4>(), math::vec3( longestSize.x, longestSize.y, 0.0f ) ); // ugly negative Y !!
+      const math::mat4 modelMatrix = toRoundedPos * tspec * tc * patternRotation * to;
 
       const math::mat4 mvpMatrix = mProjectionMatrix * mViewMatrix * modelMatrix;  // TODO model matrix will be needed to rotate the pattern quad!
       const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
@@ -821,13 +861,6 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
 
       mTextures[mDrawPatterns[mDrawPatternIdx]->mTextureIdx]->UnbindTextureUnit();
       mMeshes[mDrawPatterns[mDrawPatternIdx]->mMeshIdx]->Unbind();
-
-
-      {
-        std::stringstream ss;
-        ss << " worldPos: " << mCurrentMouseWorldPosition << " roundedPos" << roundedPosition << " halfPatternSize" << halfPatternSize << " imagePos: " << WorldToImage( mCurrentMouseWorldPosition );
-        //Log( ss.str() );
-      }
     }
   }
 
@@ -927,8 +960,6 @@ void GLCanvas::OnMouseRightDown( wxMouseEvent& event )
   mCurrentDrawingColor = mSecondaryColor;
   SetPixel( imagePos );
   Refresh();
-
-  this->SetFocus();
 }
 
 void GLCanvas::OnMouseRightUp( wxMouseEvent& event )
@@ -961,14 +992,17 @@ void GLCanvas::OnMouseLeftDown( wxMouseEvent& event )
   mDrawingActive = true;
   mCurrentDrawingColor = mPrimaryColor;
   SetPixel( imagePos );
-  Refresh();
-
-  this->SetFocus();
+  Refresh();  
 }
 
 void GLCanvas::OnMouseLeftUp( wxMouseEvent& /*event*/ )
 {
   mDrawingActive = false;
+}
+
+void GLCanvas::OnMouseEnter( wxMouseEvent& /*event*/ )
+{
+  this->SetFocus();
 }
 
 void GLCanvas::OnMouseLeave( wxMouseEvent& /*event*/ )
@@ -980,7 +1014,7 @@ void GLCanvas::OnKeyDown( wxKeyEvent& event )
 {
   if ( event.GetKeyCode() == 'R' )
   {
-    RotatePattern();   
+    RotatePattern();
     Refresh();
   }
   else if ( event.GetKeyCode() == WXK_SPACE )

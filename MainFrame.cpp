@@ -89,7 +89,7 @@ MainFrame::MainFrame( wxWindow* parent, std::wstring title, const wxPoint& pos, 
       mPatternComboBox->Append( mGLCanvas->GetPattern( idx ).GetName() );
     }
     mPatternComboBox->SetSelection( 0 );
-    mGLCanvas->SetCurrentPattern( 0 );
+    mGLCanvas->SetCurrentPattern( 0 ); // TODO use latest
   }
   catch ( const std::exception& e )
   {

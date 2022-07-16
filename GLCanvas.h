@@ -70,6 +70,7 @@ private:
   void CreateTextures();
   uint32_t CreateShader( uint32_t kind, const std::string& src );
   void CreatePatterns();
+  void AddPattern( uint32_t w, uint32_t h, const std::vector<bool>& mask, const std::string& name );
 
   math::vec2 ScreenToWorld( const math::ivec2& screenSpacePoint );
   math::ivec2 WorldToImage( const math::vec2& worldSpacePoint );
@@ -86,6 +87,7 @@ private:
   void OnMouseMiddleUp( wxMouseEvent& event );
   void OnMouseLeftDown( wxMouseEvent& event );
   void OnMouseLeftUp( wxMouseEvent& event );
+  void OnMouseEnter( wxMouseEvent& event );
   void OnMouseLeave( wxMouseEvent& event );
   void OnMouseWheel( wxMouseEvent& event );
   void OnKeyDown( wxKeyEvent& event );
