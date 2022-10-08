@@ -22,10 +22,11 @@ public:
   uint32_t Width() const;
   uint32_t Height() const;
 
+  void Rotate();
+  const float& GetRotation() const;
+
   void Write( std::ofstream& stream );
   void Read( std::ifstream& stream );
-
-  void Rotate();
 
 protected:
   Bits& GetBits();
@@ -35,4 +36,5 @@ private:
   uint32_t mWidth = 0;
   uint32_t mHeight = 0;
   Bits mBits;
+  float mRotation = 0.0f;
 };

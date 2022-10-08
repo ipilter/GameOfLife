@@ -30,80 +30,16 @@ GLCanvas::GLCanvas( const uint32_t textureSize
   , mSecondaryColor ( util::Color( 0, 0, 0 ) )
   , mCurrentDrawingColor ( util::Color( 255, 255, 255 ) ) // TODO index in an array instead
 {
-  wxGLContextAttrs contextAttrs;
-  contextAttrs.CoreProfile().OGLVersion( 4, 5 ).Robust().ResetIsolation().EndList();
-  mContext = std::make_unique<wxGLContext>( this, nullptr, &contextAttrs );
-
-  Bind( wxEVT_SIZE, &GLCanvas::OnSize, this );
-  Bind( wxEVT_PAINT, &GLCanvas::OnPaint, this );
-  Bind( wxEVT_RIGHT_DOWN, &GLCanvas::OnMouseRightDown, this );
-  Bind( wxEVT_RIGHT_UP, &GLCanvas::OnMouseRightUp, this );
-  Bind( wxEVT_MIDDLE_DOWN, &GLCanvas::OnMouseMiddleDown, this );
-  Bind( wxEVT_MIDDLE_UP, &GLCanvas::OnMouseMiddleUp, this );
-  Bind( wxEVT_LEFT_DOWN, &GLCanvas::OnMouseLeftDown, this );
-  Bind( wxEVT_LEFT_UP, &GLCanvas::OnMouseLeftUp, this );
-  Bind( wxEVT_MOTION, &GLCanvas::OnMouseMove, this );
-  Bind( wxEVT_LEAVE_WINDOW, &GLCanvas::OnMouseLeave, this );
-  Bind( wxEVT_MOUSEWHEEL, &GLCanvas::OnMouseWheel, this );
-  Bind( wxEVT_KEY_DOWN, &GLCanvas::OnKeyDown, this );
-
-  SetCurrent( *mContext );
-
-  // OpenGL
-  InitializeGLEW();
-
-  // Cuda
-  cudaError_t error_test = cudaSuccess;
-
-  int32_t gpuCount = 0;
-  error_test = cudaGetDeviceCount( &gpuCount );
-  if ( error_test != cudaSuccess )
-  {
-    throw std::runtime_error( "cudaGetDeviceCount failed" );
-  }
-
-  cudaDeviceProp prop = { 0 };
-  int32_t gpuId = 0;
-  error_test = cudaGetDeviceProperties( &prop, gpuId );
-  if ( error_test != cudaSuccess )
-  {
-    throw std::runtime_error( "cudaGetDeviceProperties failed" );
-  }
-
-  error_test = cudaGLSetGLDevice( gpuId );
-  if ( error_test != cudaSuccess )
-  {
-    throw std::runtime_error( "cudaGLSetGLDevice failed" );
-  }
-
-  // create PBOs
-  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
-  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
-  mFrontBufferIdx = 0;
-  mBackBufferIdx = 1;
-
-  // stuff
-  int32_t maxTextureSize = 0;
-  glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
-  logger::Logger::Instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
-  mTextureSize = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) ); // nxn pixels
-  mTexturePatternSize = 10; // nxn pixels
-
-  CreateGeometry();
-  CreateShaderProgram();
-  CreateTextures();
-
-  int32_t pboAlignment = -1;
-  glGetIntegerv(GL_UNPACK_ALIGNMENT, &pboAlignment);
-  logger::Logger::Instance() << "pbo alignment " << pboAlignment << "\n";
-
-  // view
-  mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 5.0f ) ), math::vec3( -mQuadSize / 2.0, -mQuadSize / 2.0, 0.0 ) );
-
-  // patterns
+  InitializeEventHandlers();
+  InitializeGL();
+  InitializeCuda();
   CreatePatterns();
+  CreatePixelBuffers();
+  CreateTextures();
+  CreateGeometry();
+  CreateShaders();
 
-  // step timer
+  mViewMatrix = glm::translate( glm::scale( glm::identity<math::mat4>(), math::vec3( 21.0 ) ), math::vec3( -mQuadSize / 2.0f, -mQuadSize / 2.0f, 0.0f ) ); // at center zoom level 5
   mStepTimer = std::make_unique<StepTimer>( this );
 }
 
@@ -149,7 +85,8 @@ const uint32_t GLCanvas::GetSecondaryColor() const
 
 void GLCanvas::SetCurrentPattern( const uint32_t idx )
 {
-  mDrawPattern = *mDrawPatterns[idx];
+  mDrawPatternIdx = idx;
+  Refresh();
 }
 
 uint32_t GLCanvas::GetPatternCount() const
@@ -159,7 +96,7 @@ uint32_t GLCanvas::GetPatternCount() const
 
 const Pattern& GLCanvas::GetPattern( const uint32_t idx ) const
 {
-  return *mDrawPatterns[idx];
+  return *mDrawPatterns[idx]->mPattern;
 }
 
 void GLCanvas::SetDrawPixelGrid( const bool drawPixelGrid )
@@ -169,8 +106,33 @@ void GLCanvas::SetDrawPixelGrid( const bool drawPixelGrid )
   Refresh();
 }
 
-void GLCanvas::InitializeGLEW()
+void GLCanvas::InitializeEventHandlers()
 {
+  Bind( wxEVT_SIZE, &GLCanvas::OnSize, this );
+  Bind( wxEVT_PAINT, &GLCanvas::OnPaint, this );
+  Bind( wxEVT_RIGHT_DOWN, &GLCanvas::OnMouseRightDown, this );
+  Bind( wxEVT_RIGHT_UP, &GLCanvas::OnMouseRightUp, this );
+  Bind( wxEVT_MIDDLE_DOWN, &GLCanvas::OnMouseMiddleDown, this );
+  Bind( wxEVT_MIDDLE_UP, &GLCanvas::OnMouseMiddleUp, this );
+  Bind( wxEVT_LEFT_DOWN, &GLCanvas::OnMouseLeftDown, this );
+  Bind( wxEVT_LEFT_UP, &GLCanvas::OnMouseLeftUp, this );
+  Bind( wxEVT_MOTION, &GLCanvas::OnMouseMove, this );
+  Bind( wxEVT_LEAVE_WINDOW, &GLCanvas::OnMouseLeave, this );
+  Bind( wxEVT_ENTER_WINDOW, &GLCanvas::OnMouseEnter, this );
+  Bind( wxEVT_MOUSEWHEEL, &GLCanvas::OnMouseWheel, this );
+  Bind( wxEVT_KEY_DOWN, &GLCanvas::OnKeyDown, this );
+}
+
+void GLCanvas::InitializeGL()
+{
+  wxGLContextAttrs contextAttrs;
+  contextAttrs.CoreProfile().OGLVersion( 4, 5 ).Robust().ResetIsolation().EndList();
+  mContext = std::make_unique<wxGLContext>( this, nullptr, &contextAttrs );
+  if ( !SetCurrent( *mContext ) )
+  {
+    throw std::exception( "Cannot set GL context" );
+  }
+
   glewExperimental = false;
   GLenum err = glewInit();
   if ( err != GLEW_OK )
@@ -181,6 +143,56 @@ void GLCanvas::InitializeGLEW()
 
   const bool fp64( glewGetExtension( "GL_ARB_gpu_shader_fp64" ) );
   logger::Logger::Instance() << "GL_ARB_gpu_shader_fp64 " << ( fp64 == 1 ? "supported" : "not supported" ) << "\n";
+
+  int32_t maxTextureSize = 0;
+  glGetIntegerv( GL_MAX_TEXTURE_SIZE, &maxTextureSize );
+  logger::Logger::Instance() << "Max texture size on current GPU " << maxTextureSize << "x" << maxTextureSize << "\n";
+  mTextureSize = glm::min( mTextureSize, static_cast<uint32_t>( maxTextureSize ) ); // nxn pixels
+  mTexturePatternSize = 10; // nxn pixels
+}
+
+void GLCanvas::InitializeCuda()
+{
+  cudaError_t error_test = cudaSuccess;
+
+  int32_t gpuCount = 0;
+  error_test = cudaGetDeviceCount( &gpuCount );
+  if ( error_test != cudaSuccess )
+  {
+    throw std::runtime_error( "cudaGetDeviceCount failed" );
+  }
+
+  cudaDeviceProp prop = { 0 };
+  int32_t gpuId = 0;
+  error_test = cudaGetDeviceProperties( &prop, gpuId );
+  if ( error_test != cudaSuccess )
+  {
+    throw std::runtime_error( "cudaGetDeviceProperties failed" );
+  }
+
+  error_test = cudaGLSetGLDevice( gpuId );
+  if ( error_test != cudaSuccess )
+  {
+    throw std::runtime_error( "cudaGLSetGLDevice failed" );
+  }
+}
+
+void GLCanvas::CreatePixelBuffers()
+{
+  int32_t pboAlignment = -1;
+  glGetIntegerv( GL_UNPACK_ALIGNMENT, &pboAlignment );
+  if ( pboAlignment != 4 )
+  {
+    std::stringstream ss;
+    ss << "invalid PBO alignment: " << pboAlignment;
+    throw std::runtime_error( ss.str() );
+  }
+
+  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mFrontBufferIdx = mPBOs.size() - 1;
+
+  mPBOs.push_back( std::make_unique<PixelBufferObject>() );
+  mBackBufferIdx = mPBOs.size() - 1;
 }
 
 void GLCanvas::CreateGeometry()
@@ -222,28 +234,34 @@ void GLCanvas::CreateGeometry()
     mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) );
   }
 
-  // pattern quads TODO
-  //{
-  //  const float pixelSize = 1.0f / mTextureSize;
-  //  const float patternSize = 3.0f; // 3x3 pixels
-  //  const float quadSize = pixelSize * patternSize;
-  //  const std::vector<float> points = { 0.0f,      0.0f,     0.0f, 1.0f // vtx bl
-  //                                     , quadSize, 0.0f,     1.0f, 1.0f // vtx br
-  //                                     , 0.0f,     quadSize, 0.0f, 0.0f // vtx tl
-  //                                     , quadSize, quadSize, 1.0f, 0.0f // vtx tr
-  //  };
+  // create pattern quads
+  {
+    for ( const auto& patternInfo : mDrawPatterns )
+    {
+      const float pixelSize = 1.0f / mTextureSize;
+      const float quadWidth = pixelSize * patternInfo->mPattern->Width(); // TODO precision? use 1 x 1 * aspect quad and scale it in shader
+      const float quadHeight = pixelSize * patternInfo->mPattern->Height();
 
-  //  const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+      // TODO fix inverted y to match texture`s pixel y direction in SetPixel
+      const std::vector<float> points = { 0.0f,       0.0f,       0.0f, 0.0f // vtx tl
+                                         , quadWidth, 0.0f,       1.0f, 0.0f // vtx tr
+                                         , 0.0f,      -quadHeight, 0.0f, 1.0f // vtx bl  -Y axis !!
+                                         , quadWidth, -quadHeight, 1.0f, 1.0f // vtx br  -Y axis !!
+      };
 
-  //  // layout of data inside points array
-  //  const size_t stride = 4 * sizeof( float );
-  //  const size_t vertexOffset = 0;
-  //  const size_t texelOffset = 2 * sizeof( float );
-  //  mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) );
-  //}
+      const std::vector<uint32_t> indices = { 0, 1, 2,  1, 3, 2 };  // triangle vertex indices
+
+      // layout of data inside points array
+      const size_t stride = 4 * sizeof( float );
+      const size_t vertexOffset = 0;
+      const size_t texelOffset = 2 * sizeof( float );
+      mMeshes.push_back( std::make_unique<Mesh>( points, indices, stride, vertexOffset, texelOffset ) ); 
+      patternInfo->mMeshIdx = mMeshes.size() - 1;
+    }
+  }
 }
 
-void GLCanvas::CreateShaderProgram()
+void GLCanvas::CreateShaders()
 {
   mShaderProgram = glCreateProgram();
   if ( mShaderProgram == 0 )
@@ -321,7 +339,7 @@ void GLCanvas::CreateTextures()
   {
     mTextures.push_back( std::make_unique<Texture>( mTextureSize, mTextureSize ) );
 
-    const size_t pixelCount = mTextures.front()->Width() * mTextures.front()->Height();
+    const size_t pixelCount = mTextures.front()->Width() * static_cast<size_t>( mTextures.front()->Height() );
     const size_t byteCount = pixelCount * sizeof( uint32_t );
 
     // allocate PBO pixels
@@ -344,6 +362,10 @@ void GLCanvas::CreateTextures()
     mTextures.back()->CreateFromPBO();
     mTextures.back()->Unbind();
     mPBOs[mFrontBufferIdx]->UnbindPbo();
+
+    std::stringstream ss;
+    ss << " World created with dimensions: " << mTextures.back()->Width() << "x" << mTextures.back()->Height();
+    Log( ss.str() );
   }
 
   // create pixel grid checkerboard texture
@@ -353,11 +375,11 @@ void GLCanvas::CreateTextures()
     const uint32_t pixelCount = mTextures.back()->Width() * mTextures.back()->Height();
     std::unique_ptr<uint32_t[]> pixelBuffer = std::make_unique<uint32_t[]>( pixelCount );
 
-    // TODO do on GPU instead
-    const uint8_t alpha = 50;
+    // TODO do on GPU instead ?
+    const uint8_t alpha = 100;
     const uint32_t backgroundColor = util::Color( 0, 0, 0, 0 );
     const uint32_t darkForegroundColor = util::Color( 130, 130, 130, alpha );
-    const uint32_t lightForegroundColor = util::Color( 255, 255, 255, alpha );
+    const uint32_t lightForegroundColor = util::Color( 205, 205, 205, alpha );
     for ( uint32_t j = 0; j < mTextures.back()->Height(); ++j )
     {
       for ( uint32_t i = 0; i < mTextures.back()->Width(); ++i )
@@ -377,16 +399,40 @@ void GLCanvas::CreateTextures()
     mTextures.back()->Bind();
     mTextures.back()->CreateFromArray( pixelBuffer.get() );
     mTextures.back()->Unbind();
+    std::stringstream ss;
+    ss << " Checkerboard texture created with dimensions: " << mTextures.back()->Width() << "x" << mTextures.back()->Height();
+    Log( ss.str() );
   }
 
   // create pattern textures
   {
+    for ( const auto& patternInfo : mDrawPatterns )
+    {
+      mTextures.push_back( std::make_unique<Texture>( patternInfo->mPattern->Width(), patternInfo->mPattern->Height() ) );
+      const uint32_t pixelCount = mTextures.back()->Width() * mTextures.back()->Height();
+      std::unique_ptr<uint32_t[]> pixelBuffer = std::make_unique<uint32_t[]>( pixelCount );
 
+      const uint8_t alpha = 155;
+      const uint32_t backgroundColor = util::Color( 0, 0, 0, 0 );       // TODO: use current color instead in shader
+      const uint32_t foregroundColor = util::Color( 200, 200, 200, alpha ); // TODO: use current color instead in shader
+      for ( uint32_t j = 0; j < mTextures.back()->Height(); ++j )
+      {
+        for ( uint32_t i = 0; i < mTextures.back()->Width(); ++i )
+        {
+          pixelBuffer[i + j * mTextures.back()->Width()] = patternInfo->mPattern->At( i, j ) ? foregroundColor : backgroundColor;
+        }
+      }
+      mTextures.back()->Bind();
+      mTextures.back()->CreateFromArray( pixelBuffer.get() );
+      mTextures.back()->Unbind();
+
+      patternInfo->mTextureIdx = mTextures.size() - 1;
+
+      std::stringstream ss;
+      ss << " Pattern created with dimensions: " <<mTextures.back()->Width() << "x" << mTextures.back()->Height();
+      Log( ss.str() );
+    }
   }
-
-  std::stringstream ss;
-  ss << " Texture with dimensions " << mTextures.front()->Width() << "x" << mTextures.front()->Height() << " created";
-  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
 }
 
 void GLCanvas::CreatePatterns()
@@ -397,52 +443,83 @@ void GLCanvas::CreatePatterns()
     size_t count = 0;
     util::Read_t( patternsStream, count );
     mDrawPatterns.resize( count );
-    for( size_t i(0); i < count; ++i )
+    for ( size_t i( 0 ); i < count; ++i )
     {
-      mDrawPatterns[i] = std::move( std::make_unique<Pattern>() );
-      mDrawPatterns[i]->Read( patternsStream );
+      mDrawPatterns[i] = std::make_unique<PatternInfo>( PatternInfo( std::make_unique<Pattern>() ) );
+      mDrawPatterns[i]->mPattern->Read( patternsStream );
     }
   }
   else
   {
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Pixel", 1, 1, std::vector<bool> {
-      1 } ) ) );
+    {
+      std::vector<bool> mask = std::vector<bool>{ 1 };
+      AddPattern( 1, 1, mask, "Pixel" );
+    }
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Block", 2, 2, std::vector<bool> {
-      1, 1,
-      1, 1 } ) ) );
+    {
+      const std::vector<bool> mask = {
+        1, 1,
+        1, 0 };
+      AddPattern( 2, 2, mask, "Block" );
+    }
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider", 3, 3, std::vector<bool> {
-      0, 1, 0,
+    {
+      const std::vector<bool> mask = {
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 0, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1 };
+      AddPattern( 5, 5, mask, "BigBlock" );
+    }
+
+    {
+      const std::vector<bool> mask = {
+        0, 1, 0,
         0, 0, 1,
-        1, 1, 1 } ) ) );
+        1, 1, 1 };
+      AddPattern( 3, 3, mask, "Glider" );
+    }
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Eater", 4, 4, std::vector<bool> {
+    {
+      const std::vector<bool> mask = {
         1, 1, 0, 0,
         1, 0, 1, 0,
         0, 0, 1, 0,
-        0, 0, 1, 1 } ) ) );
+        0, 0, 1, 1 };
+      AddPattern( 4, 4, mask, "Eater" );
+    }
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Lightweight Spaceship", 5, 4, std::vector<bool> {
-      0, 0, 1, 1, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 0, 1, 1, 0,
         1, 1, 0, 1, 1,
         1, 1, 1, 1, 0,
-        0, 1, 1, 0, 0 } ) ) );
+        0, 1, 1, 0, 0 };
+      AddPattern( 5, 4, mask, "Lightweight Spaceship" );
+    }
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Middleweight Spaceship", 6, 4, std::vector<bool> {
-      0, 0, 0, 1, 1, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 0, 0, 1, 1, 0,
         1, 1, 1, 0, 1, 1,
         1, 1, 1, 1, 1, 0,
-        0, 1, 1, 1, 0, 0 } ) ) );
+        0, 1, 1, 1, 0, 0 };
+      AddPattern( 6, 4, mask, "Middleweight Spaceship" );
+    }
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Heavyweight Spaceship", 7, 4, std::vector<bool> {
-      0, 0, 0, 0, 1, 1, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 0, 0, 0, 1, 1, 0,
         1, 1, 1, 1, 0, 1, 1,
         1, 1, 1, 1, 1, 1, 0,
-        0, 1, 1, 1, 1, 0, 0 } ) ) );
+        0, 1, 1, 1, 1, 0, 0 };
+      AddPattern( 7, 4, mask, "Heavyweight Spaceship" );
+    }
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Glider Gun", 36, 9, std::vector<bool> {
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    {
+      const std::vector<bool> mask = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
@@ -450,10 +527,13 @@ void GLCanvas::CreatePatterns()
         1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, } ) ) );
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+      AddPattern( 36, 9, mask, "Glider Gun" );
+    }
 
-    mDrawPatterns.push_back( std::move( std::make_unique<Pattern>( "Unknown Ship", 34, 35, std::vector<bool> {
-      0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    {
+      const std::vector<bool> mask = {
+        0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         0,1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         0,1,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         1,0,0,1,1,1,1,1,1,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -487,7 +567,9 @@ void GLCanvas::CreatePatterns()
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 } ) ) );
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0 };
+      AddPattern( 34, 35, mask, "Unknown Ship" );
+    }
   }
 }
 
@@ -518,15 +600,15 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
   try
   {
     // calculate updateable pixel region coordinates
-    int32_t tox = pixel.x - ( mDrawPattern.Width() / 2.0f ) + 0.5f;
-    int32_t toy = pixel.y - ( mDrawPattern.Height() / 2.0f ) + 0.5f;
-    uint32_t pw = mDrawPattern.Width();
-    uint32_t ph = mDrawPattern.Height();
+    const int32_t tox = pixel.x ;
+    const int32_t toy = pixel.y ;
+    const uint32_t pw = mDrawPatterns[mDrawPatternIdx]->mPattern->Width();
+    const uint32_t ph = mDrawPatterns[mDrawPatternIdx]->mPattern->Height();
 
-    uint32_t rxmin = std::max( tox, 0 );
-    uint32_t rymin = std::max( toy, 0 );
-    uint32_t rxmax = std::min( tox + mDrawPattern.Width(), mTextures.front()->Width() );
-    uint32_t rymax = std::min( toy + mDrawPattern.Height(), mTextures.front()->Height() );
+    const uint32_t rxmin = std::max( tox, 0 );
+    const uint32_t rymin = std::max( toy, 0 );
+    const uint32_t rxmax = std::min( tox + mDrawPatterns[mDrawPatternIdx]->mPattern->Width(), mTextures.front()->Width() );
+    const uint32_t rymax = std::min( toy + mDrawPatterns[mDrawPatternIdx]->mPattern->Height(), mTextures.front()->Height() );
 
     uint32_t pox = 0;
     uint32_t poy = 0;
@@ -539,7 +621,7 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
       poy -= toy;
     }
 
-    // update pixels in front PBO
+    // update pixels in front PBO. y coordinates are from top to down in screen space
     mPBOs[mFrontBufferIdx]->BindPbo();
     uint32_t* pixelBuffer = mPBOs[mFrontBufferIdx]->MapPboBuffer();
 
@@ -549,10 +631,9 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
     {
       for ( uint32_t px = rxmin; px < rxmax; ++px )
       {
-        const uint64_t offset = px + py * mTextures.front()->Width();
-        if ( mDrawPattern.At( pcx, pcy ) )
+        if ( mDrawPatterns[mDrawPatternIdx]->mPattern->At( pcx, pcy ) )
         {
-          pixelBuffer[offset] = mCurrentDrawingColor;
+          pixelBuffer[px + py * mTextures.front()->Width() ] = mCurrentDrawingColor; 
         }
         ++pcx;
       }
@@ -572,11 +653,23 @@ void GLCanvas::SetPixel( const math::uvec2& pixel )
   {
     std::stringstream ss;
     ss << "SetPixel error: " << e.what();
-    dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( ss.str() );
+    Log( ss.str() );
   }
 }
 
-void GLCanvas::Reset()
+void GLCanvas::RotatePattern()
+{
+  mDrawPatterns[mDrawPatternIdx]->mPattern->Rotate();
+}
+
+void  GLCanvas::AddPattern( uint32_t w, uint32_t h, const std::vector<bool>& mask, const std::string& name ) // TODO template buffer
+{
+  std::vector<bool> initValue( w * h, 0 );
+  std::copy( mask.begin(), mask.end(), initValue.begin() );
+  mDrawPatterns.push_back( std::make_unique<PatternInfo>( std::move( std::make_unique<Pattern>( name, w, h, initValue ) ) ) );
+}
+
+void GLCanvas::Clear()
 {
   // reset pixels in the front buffer
   mPBOs[mFrontBufferIdx]->MapCudaResource();
@@ -612,11 +705,6 @@ void GLCanvas::Random()
   mPBOs[mFrontBufferIdx]->UnbindPbo();
 
   Refresh();
-}
-
-void GLCanvas::RotatePattern()
-{
-  mDrawPattern.Rotate();
 }
 
 void GLCanvas::Step()
@@ -672,6 +760,11 @@ void GLCanvas::SetDeltaTime( const uint32_t dt )
   }
 }
 
+bool GLCanvas::IsRunning() const
+{
+  return mStepTimerRuning;
+}
+
 void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
 {
   SetCurrent( *mContext );
@@ -682,25 +775,23 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
   glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
   glClear( GL_COLOR_BUFFER_BIT );
 
+  glUseProgram( mShaderProgram );
+
   // draw world
   {
-    glUseProgram( mShaderProgram );
-  
     const math::mat4 vpMatrix( mProjectionMatrix * mViewMatrix );
     const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
     glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
-  
+
     mMeshes[0]->Bind();
     mTextures[0]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
-  
+
     glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // TODO textureData at location 0. Should the Mesh do this instead
-  
+
     mMeshes[0]->Render();
-  
+
     mTextures[0]->UnbindTextureUnit();
     mMeshes[0]->Unbind();
-  
-    glUseProgram( 0 );
   }
 
   // draw pixel grid if needed
@@ -722,30 +813,58 @@ void GLCanvas::OnPaint( wxPaintEvent& /*event*/ )
     mTextures[1]->UnbindTextureUnit();
     mMeshes[1]->Unbind();
 
-    glUseProgram( 0 );
+    // draw current pattern
+    // calculate the size of a pixel with the current view. if bigger than a threshold then draw the pattern.
+    if ( mViewMatrix[0][0] > 1.0f )
+    {
+      const math::vec2 pixelSize( mQuadSize / mTextures[0]->Width(), mQuadSize / mTextures[0]->Height() );
+      // TODO: on Y axis + pixelSize.y is because pattern quad y coords are negative to match with the pixel buffer setpixel Y axis direction (texture`s pixel Y direction). 
+      // if setpixel updates the buffer with inverted Y direction all these magic (negative quad Y, + pixelSize.Y) are not needed!!
+      const math::vec2 roundedPosition( util::RoundToNearestMultiple( mCurrentMouseWorldPosition.x, pixelSize.x ), util::RoundToNearestMultiple( mCurrentMouseWorldPosition.y, pixelSize.y ) + pixelSize.y ); 
+
+      const uint32_t shortestPatternSize = std::min( mDrawPatterns[mDrawPatternIdx]->mPattern->Width(), mDrawPatterns[mDrawPatternIdx]->mPattern->Height() );
+      const uint32_t longestPatternSize = std::max( mDrawPatterns[mDrawPatternIdx]->mPattern->Width(), mDrawPatterns[mDrawPatternIdx]->mPattern->Height() );
+      math::vec2 shortestHalfSize( ( shortestPatternSize / 2.0f ) * pixelSize.x, ( shortestPatternSize / 2.0f ) * pixelSize.y );
+      math::vec2 longestSize( ( longestPatternSize ) * pixelSize.x, ( longestPatternSize ) * pixelSize.y );
+
+      // TODO: to simplify here do better roatation in SetPixel when applying the pattern to the world image
+      // due to the simple SetPixel rotated pattern apply method 90 and 180 degree rotations are just mirrored version of the pattern, not real rotation around the pattern? origin
+      // for now just hack it!
+      math::mat4 tspec = glm::translate( glm::identity<math::mat4>(), math::vec3( 0.0f ) ); // spec trans
+      float rotation = mDrawPatterns[mDrawPatternIdx]->mPattern->GetRotation();
+      if ( std::abs(rotation - 90.0f) < 0.00001f )
+      {
+        tspec = glm::translate( glm::identity<math::mat4>(), math::vec3( 0.0f, -longestSize.y + shortestPatternSize* pixelSize.y, 0.0f ) ); // ugly negative Y !!
+      }
+      else if (  std::abs( rotation - 180.0f ) < 0.00001f )
+      {
+        tspec = glm::translate( glm::identity<math::mat4>(), math::vec3( longestSize.x - shortestPatternSize * pixelSize.x, 0.0, 0.0f ) ); 
+      }
+
+      const math::mat4 tc = glm::translate( glm::identity<math::mat4>(), math::vec3( shortestHalfSize.x, -shortestHalfSize.y, 0.0f ) ); // ugly negative Y !!
+      const math::mat4 patternRotation = glm::rotate( glm::identity<math::mat4>(), glm::radians( rotation ), math::vec3( 0.0f, 0.0f, 1.0f ) );
+      const math::mat4 to = glm::translate( glm::identity<math::mat4>(), math::vec3( -shortestHalfSize.x, shortestHalfSize.y, 0.0f ) ); // ugly negative Y !!
+      const math::mat4 toRoundedPos = glm::translate( glm::identity<math::mat4>(), math::vec3( roundedPosition, 0.0 ) );
+      const math::mat4 tl = glm::translate( glm::identity<math::mat4>(), math::vec3( longestSize.x, longestSize.y, 0.0f ) ); // ugly negative Y !!
+      const math::mat4 modelMatrix = toRoundedPos * tspec * tc * patternRotation * to;
+
+      const math::mat4 mvpMatrix = mProjectionMatrix * mViewMatrix * modelMatrix;  // TODO model matrix will be needed to rotate the pattern quad!
+      const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
+      glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &mvpMatrix[0][0] );
+
+      mMeshes[mDrawPatterns[mDrawPatternIdx]->mMeshIdx]->Bind();
+      mTextures[mDrawPatterns[mDrawPatternIdx]->mTextureIdx]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
+
+      glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
+
+      mMeshes[mDrawPatterns[mDrawPatternIdx]->mMeshIdx]->Render();
+
+      mTextures[mDrawPatterns[mDrawPatternIdx]->mTextureIdx]->UnbindTextureUnit();
+      mMeshes[mDrawPatterns[mDrawPatternIdx]->mMeshIdx]->Unbind();
+    }
   }
 
-  // draw current pattern
-  if ( false )
-  {
-    //glUseProgram( mShaderProgram );
-
-    //const math::mat4 vpMatrix = mProjectionMatrix * mViewMatrix;  // TODO model matrix will be needed to rotate the pattern quad!
-    //const int32_t uniformLoc( glGetUniformLocation( mShaderProgram, "vpMatrix" ) ); // TODO do it nicer inside a shader object
-    //glUniformMatrix4fv( uniformLoc, 1, GL_FALSE, &vpMatrix[0][0] );
-
-    //mMeshes[0]->Bind();
-    //mTextures[0]->BindTextureUnit( 0 ); // TODO should the Mesh do this instead in it's Render method?
-    //
-    //glUniform1i( glGetUniformLocation( mShaderProgram, "textureData" ), 0 ); // textureData at location 0. Should the Mesh do this instead in it's Render method?
-    //
-    //mMeshes[0]->Render();
-    //
-    //mTextures[0]->UnbindTextureUnit();
-    //mMeshes[0]->Unbind();
-    //
-    //glUseProgram( 0 );
-  }
+  glUseProgram( 0 );
 
   SwapBuffers();
 }
@@ -782,14 +901,25 @@ void GLCanvas::OnMouseMove( wxMouseEvent& event )
 
     mViewMatrix = glm::translate( mViewMatrix, math::vec3( mouse_delta, 0.0f ) );
     mPreviousMousePosition = screenPos;
-    Refresh();
+    //if ( !mStepTimerRuning )
+    {
+      Refresh();
+    }
   }
   else if ( mDrawingActive && imagePos != math::ivec2( -1, -1 ) )
   {
     SetPixel( imagePos );
+    //if ( !mStepTimerRuning )
+    {
+      Refresh();
+    }
+  }
+  
+  mCurrentMouseWorldPosition = worldPos;
+  if ( !mStepTimerRuning )
+  {
     Refresh();
   }
-
   //{
   //  std::stringstream ss;
   //  ss << "screen: " << screenPos << " world: " << worldPos;
@@ -812,7 +942,6 @@ void GLCanvas::OnMouseWheel( wxMouseEvent& event )
                                                             , math::vec3( worldFocusPoint, 0.0f ) )
                                             , math::vec3( scale, scale, 1.0f ) )
                 , math::vec3( -worldFocusPoint, 0.0f ) );
-
   Refresh();
 }
 
@@ -831,11 +960,9 @@ void GLCanvas::OnMouseRightDown( wxMouseEvent& event )
   mCurrentDrawingColor = mSecondaryColor;
   SetPixel( imagePos );
   Refresh();
-
-  this->SetFocus();
 }
 
-void GLCanvas::OnMouseRightUp( wxMouseEvent& /*event*/ )
+void GLCanvas::OnMouseRightUp( wxMouseEvent& event )
 {
   mDrawingActive = false;
 }
@@ -865,14 +992,17 @@ void GLCanvas::OnMouseLeftDown( wxMouseEvent& event )
   mDrawingActive = true;
   mCurrentDrawingColor = mPrimaryColor;
   SetPixel( imagePos );
-  Refresh();
-
-  this->SetFocus();
+  Refresh();  
 }
 
 void GLCanvas::OnMouseLeftUp( wxMouseEvent& /*event*/ )
 {
   mDrawingActive = false;
+}
+
+void GLCanvas::OnMouseEnter( wxMouseEvent& /*event*/ )
+{
+  this->SetFocus();
 }
 
 void GLCanvas::OnMouseLeave( wxMouseEvent& /*event*/ )
@@ -885,6 +1015,7 @@ void GLCanvas::OnKeyDown( wxKeyEvent& event )
   if ( event.GetKeyCode() == 'R' )
   {
     RotatePattern();
+    Refresh();
   }
   else if ( event.GetKeyCode() == WXK_SPACE )
   {
@@ -917,6 +1048,11 @@ void GLCanvas::OnStepTimer()
   {
     mStepTimer->Stop();
   }
+}
+
+void GLCanvas::Log( const std::string& msg )
+{
+  dynamic_cast<MainFrame*>( GetParent()->GetParent() )->AddLogMessage( msg );
 }
 
 // StepTimer

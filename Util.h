@@ -159,4 +159,9 @@ inline void Read_t( std::ifstream& stream, std::vector<bool>& array )
   }
 }
 
+inline float RoundToNearestMultiple( const float val, const float n )
+{
+  return std::floor( val / n ) * n;
+}
+
 }

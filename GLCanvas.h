@@ -24,8 +24,6 @@ class GLCanvas : public wxGLCanvas
     GLCanvas* mParent;
   };
 
-  friend class StepTimer;
-
 public:
   GLCanvas( const uint32_t textureSize
             , wxWindow* parent
@@ -54,20 +52,25 @@ public:
   const Pattern& GetPattern( const uint32_t idx ) const;
   void SetDrawPixelGrid( const bool drawPixelGrid );
 
-  void Reset();
+  void Clear();
   void Random();
   void RotatePattern();
   void Start();
   void Stop();
   void SetDeltaTime( const uint32_t dt );
+  bool IsRunning() const;
 
 private:
-  void InitializeGLEW();
+  void InitializeEventHandlers();
+  void InitializeGL();
+  void InitializeCuda();
+  void CreatePixelBuffers();
   void CreateGeometry();
-  void CreateShaderProgram();
+  void CreateShaders();
   void CreateTextures();
   uint32_t CreateShader( uint32_t kind, const std::string& src );
   void CreatePatterns();
+  void AddPattern( uint32_t w, uint32_t h, const std::vector<bool>& mask, const std::string& name );
 
   math::vec2 ScreenToWorld( const math::ivec2& screenSpacePoint );
   math::ivec2 WorldToImage( const math::vec2& worldSpacePoint );
@@ -84,10 +87,13 @@ private:
   void OnMouseMiddleUp( wxMouseEvent& event );
   void OnMouseLeftDown( wxMouseEvent& event );
   void OnMouseLeftUp( wxMouseEvent& event );
+  void OnMouseEnter( wxMouseEvent& event );
   void OnMouseLeave( wxMouseEvent& event );
   void OnMouseWheel( wxMouseEvent& event );
   void OnKeyDown( wxKeyEvent& event );
   void OnStepTimer();
+
+  void Log( const std::string& msg );
 
   // opengl context
   std::unique_ptr<wxGLContext> mContext;
@@ -120,15 +126,30 @@ private:
   // control
   bool mPanningActive = false;
   math::vec2 mPreviousMousePosition = math::vec2( 0.0 );
+  math::vec2 mCurrentMouseWorldPosition = math::vec2( 0.0 );
   bool mDrawingActive = false;
   uint32_t mPrimaryColor = 0;
   uint32_t mSecondaryColor = 0;
   uint32_t mCurrentDrawingColor = 0; // TODO index in an array instead
 
   // patterns
-  std::vector<Pattern::Ptr> mDrawPatterns;
-  Pattern mDrawPattern; // current patern used by SetPixel. Copied as it can be rotated
   bool mDrawPixelGrid = false;
+  struct PatternInfo
+  {
+    using Ptr = std::unique_ptr<PatternInfo>;
+
+    explicit PatternInfo( Pattern::Ptr&& pattern )
+      : mTextureIdx( -1 )
+      , mMeshIdx( -1 )
+      , mPattern( std::move( pattern ) )
+    {}
+
+    uint32_t mTextureIdx;
+    uint32_t mMeshIdx;
+    Pattern::Ptr mPattern;
+  };
+  std::vector<PatternInfo::Ptr> mDrawPatterns;
+  uint32_t mDrawPatternIdx; // current patern used by SetPixel. Copied as it can be rotated
 
   // step timer
   bool mStepTimerRuning = false;
